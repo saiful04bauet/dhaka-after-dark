@@ -754,6 +754,89 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
  }
  renderer.render(scene,camera);
 }
+
+/* STREET LIFE GAMEPLAY — independent mission, economy, and scene interaction. */
+function refreshGameplayHUD(){
+ const set=(id,value)=>{const el=$(id);if(el)el.textContent=value;};
+ const bar=(id,value)=>{const el=$(id);if(el)el.style.width=clamp(value,0,100)+'%';};
+ bar('healthBar',game.health);bar('armorBar',game.armor);bar('staminaBar',game.stamina);bar('vehicleBar',game.carHealth);
+ set('healthNum',Math.round(game.health));set('armorNum',Math.round(game.armor));
+ set('staminaNum',Math.round(game.stamina));set('vehicleNum',Math.round(game.carHealth));
+ set('wantedStars','★'.repeat(game.wanted)+'☆'.repeat(5-game.wanted));
+ set('walletCash','৳ '+game.cash.toLocaleString());
+ set('policeHint',game.wanted?'POLICE PURSUIT':'FREE ROAM');
+ set('missionCredits','৳ '+game.cash.toLocaleString());
+ set('missionTimer',String(Math.floor(game.remaining/60)).padStart(2,'0')+':'+String(game.remaining%60).padStart(2,'0'));
+ set('missionStatus',game.missionActive?'ACTIVE':'PRESS N · START');
+ if(!game.missionActive&&$('missionTitle'))$('missionTitle').textContent=game.mission.title;
+}
+function registerImpact(damage,raiseWanted){
+ if(!state.inCar)return;
+ game.vehicleDamage(damage);
+ game.takeDamage(damage*.17);
+ carDurability.set(userCar,game.carHealth);
+ if(raiseWanted)game.addWanted(1,'vehicle collision');
+ toast(game.carHealth<=0?'ENGINE DISABLED · EXIT THE CAR':'VEHICLE IMPACT · HEALTH '+Math.round(game.carHealth)+'%');
+ if(game.health<=0)resetAfterArrest();
+}
+function checkTrafficImpact(){
+ if(!state.inCar||impactCooldown>0||Math.abs(carSpeed)<6)return;
+ const near=(obj)=>Math.hypot(obj.position.x-userCar.position.x,obj.position.z-userCar.position.z);
+ for(const t of traffic){if(near(t.object)<3.65){registerImpact(13+Math.abs(carSpeed)*.75,true);carSpeed*=-.22;impactCooldown=1.4;return;}}
+ for(const p of urban?.police||[]){if(p.active&&near(p.car)<3.65){registerImpact(16+Math.abs(carSpeed)*.8,true);carSpeed*=-.3;impactCooldown=1.4;return;}}
+}
+function resetAfterArrest(){
+ const wasInCar=state.inCar;
+ const event=game.registerBusted();
+ if(wasInCar){carDurability.set(userCar,100);parkedCars.push({object:userCar,type:userCar.userData.kind.toUpperCase()});}
+ state.inCar=false;person.visible=true;carSpeed=0;impactCooldown=2;
+ const p=geo(23.79075,90.40503),near=findNearestRoad(p.x,p.z);
+ player.x=near.x;player.z=near.z;player.yaw=near.yaw;
+ person.position.set(near.x,0,near.z);person.rotation.y=near.yaw;cameraYaw=near.yaw;
+ camera.position.set(near.x+9,7,near.z-14);cameraTarget.set(near.x,1.7,near.z);
+ setMission();refreshGameplayHUD();toast(event);
+}
+function garageAction(upgrade=false){
+ const near=urban?.nearestService(player,'garage');
+ if(!near||near.distance>near.service.radius){toast('FIND THE VIOLET BANANI GARAGE MARKER FIRST');return;}
+ if(!state.inCar){toast('ENTER A CAR TO USE THIS GARAGE');return;}
+ if(Math.abs(carSpeed)>1.8){toast('STOP THE VEHICLE BEFORE USING THE GARAGE');return;}
+ const result=upgrade?game.upgrade():game.repair();
+ if(result.ok)carDurability.set(userCar,game.carHealth);
+ toast(result.reason);refreshGameplayHUD();
+}
+function clinicAction(){
+ const near=urban?.nearestService(player,'clinic');
+ if(!near||near.distance>near.service.radius){toast('FIND THE GREEN MOHAKHALI CLINIC MARKER FIRST');return;}
+ if(state.inCar){toast('EXIT YOUR CAR TO VISIT THE CLINIC');return;}
+ const result=game.clinic();toast(result.reason);refreshGameplayHUD();
+}
+function startNextMission(){
+ if(game.missionActive){toast('COMPLETE OR FAIL THE CURRENT JOB FIRST');return;}
+ const event=game.startMission();setMission();refreshGameplayHUD();closeJobs();toast(event);
+}
+function renderJobBoard(){
+ const list=$('jobList');if(!list)return;
+ const current=game.missionIndex%MISSIONS.length;
+ list.innerHTML=MISSIONS.map((m,i)=>{
+  const status=i===current?'CURRENT JOB':i<Math.min(game.completed,MISSIONS.length)?'COMPLETE':'UPCOMING';
+  return '<div class="jobrow '+(i===current?'current':i>current?'locked':'')+'"><span class="number">'+String(i+1).padStart(2,'0')+'</span><div><strong>'+m.title+'</strong><small>'+m.brief+'</small></div><div class="reward">৳'+m.reward.toLocaleString()+'<small>'+status+'</small></div></div>';
+ }).join('');
+ $('startJob').textContent=game.missionActive?'MISSION IN PROGRESS':'N · START / RETRY';
+}
+function closeJobs(){jobsOpen=false;$('jobBoard').classList.add('hidden');}
+function toggleJobs(){jobsOpen=!jobsOpen;$('jobBoard').classList.toggle('hidden',!jobsOpen);if(jobsOpen)renderJobBoard();}
+function horn(){
+ try{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  const ac=horn.context||(horn.context=new AC()),osc1=ac.createOscillator(),osc2=ac.createOscillator(),gain=ac.createGain();
+  osc1.type='sawtooth';osc2.type='sawtooth';osc1.frequency.value=185;osc2.frequency.value=233;
+  const t=ac.currentTime;gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.055,t+.025);gain.gain.exponentialRampToValueAtTime(.0001,t+.35);
+  osc1.connect(gain);osc2.connect(gain);gain.connect(ac.destination);osc1.start(t);osc2.start(t);osc1.stop(t+.37);osc2.stop(t+.37);
+ }catch(e){console.warn('Audio unavailable',e);}
+}
+
 function bindUI(){
  // On-screen directional buttons support mouse and touch. The same input powers
  // the actual 3D movement/steering simulation (not decorative UI).
