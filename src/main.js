@@ -1,4 +1,6 @@
 /* Dhaka / After Dark — original gameplay prototype. Runtime geodata: © OpenStreetMap contributors (ODbL). */
+import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails} from './environment_hd.js';
+import {installDetailedVehicles} from './vehicles_hd.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -32,7 +34,7 @@ let cityObjects=[],traffic=[],parkedCars=[],pedestrians=[],collisionShapes=[],tr
 let mapCanvas=$('minimap'),mapCtx=mapCanvas.getContext('2d'),fullCanvas=$('largeMap'),fullCtx=fullCanvas.getContext('2d');
 let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,modeToastAt=0;
 let rainMesh, rainPositions, textures=[],spinner=0,skyDome,cityLights=[];
-let human=null, humanLoadError='', districtMarkers=[];
+let human=null, humanLoadError='', districtMarkers=[],highDetailVehicles=null;
 const humanFallbackLabel='PROCEDURAL CHARACTER FALLBACK';
 const vec=(x,y,z)=>new T.Vector3(x,y,z);
 const geo=(lat,lon)=>({x:(lon-CENTER.lon)*M_PER_DEG_LON,z:-(lat-CENTER.lat)*M_PER_DEG_LAT});
@@ -192,10 +194,11 @@ function treesAlongPark(poly,id){let n=0;const cx=poly.reduce((a,p)=>a+p.x,0)/po
   for(let j=0;j<num;j++){if(n>130)return;n++;let t=(j+.3)/num,xx=lerp(a.x,b.x,t),zz=lerp(a.z,b.z,t);addTree(xx*.92+cx*.08,zz*.92+cz*.08,hash(id+i*50+j));}
  }
 }
-function addTree(x,z,r){const size=3.5+r*4;
+function oldProceduralTree(x,z,r){const size=3.5+r*4;
  const trunk=cylinder(.35,.52,size,paint(0x514537),x,size/2,z,7);trunk.castShadow=true;scene.add(trunk);cityObjects.push(trunk);
  for(let j=0;j<3;j++){const canopy=new T.Mesh(new T.IcosahedronGeometry(size*(.47+hash(j+r)*.19),2),new T.MeshStandardMaterial({color:new T.Color().setHSL(.31+hash(r+j)*.04,.19,.19+hash(r+j*3)*.06),roughness:1}));canopy.position.set(x+(j-1)*size*.23,size+j*.45+size*.25,z+(hash(r+j*13)-.5)*size*.25);canopy.castShadow=true;scene.add(canopy);cityObjects.push(canopy)}
 }
+function addTree(x,z,r){createGroundedTree(T,scene,x,z,r);}
 function createParksAndWaters(){
  const gmat=new T.MeshStandardMaterial({color:0x476445,roughness:1}),wmat=new T.MeshPhysicalMaterial({color:0x415b5b,roughness:.26,metalness:.27,clearcoat:.7,clearcoatRoughness:.17});
  for(let i=0;i<geometryMap.parks.length;i++){const park=geometryMap.parks[i];planePolygon(park.points,gmat,.02);if(i<18)treesAlongPark(park.points,park.id||i)}
@@ -467,11 +470,32 @@ async function loadRealHuman(){
   toast('3D CHARACTER ASSET UNAVAILABLE · CHECK INTERNET');
  }
 }
+async function loadDetailedCars(){
+ const list=[userCar,...parkedCars.map(v=>v.object),...traffic.map(v=>v.object)];
+ const info=$('vehicleStatus');
+ if(info)info.textContent='LOADING CC0 DETAILED VEHICLES...';
+ try{
+  highDetailVehicles=await installDetailedVehicles(T,list,message=>{
+   if(info)info.textContent=message.toUpperCase();
+   console.info('[Dhaka vehicle graphics]',message);
+  });
+ }catch(err){
+  console.warn('Detailed models offline, keeping drivable fallback vehicles',err);
+  if(info)info.textContent='DETAILED VEHICLES OFFLINE · GAME STILL PLAYABLE';
+ }
+}
 async function setupWorld(){
  $('mapStatus').textContent='LOADING GULSHAN / BANANI / MOHAKHALI...';
  try{geometryMap=await fetchRealDhaka();state.realMap=true;$('mapStatus').textContent='REAL OSM ROAD NETWORK';toast('Gulshan, Banani & Mohakhali OSM street data loaded');}
  catch(err){console.warn('OSM unavailable, using clearly labeled sample scene:',err);geometryMap=proceduralFallback();state.realMap=false;$('mapStatus').textContent='MAP SERVICE OFFLINE · APPROXIMATE STREETS';$('district').textContent='3 DISTRICTS · SAMPLE SCENE';$('mapCredit').textContent='Approximate streets — NOT accurate; reload for OpenStreetMap.';}
  createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();spawnEntities();createDistrictMarkers();addRain();
+ try{
+  const stats=decorateBuildingFacades(T,scene,geometryMap.buildings,DISTRICTS,geo);
+  const street=placeDhakaStreetDetails(T,scene,DISTRICTS,geo,findNearestRoad);
+  console.info('Improved building facades and Dhaka street details',stats,street);
+ }catch(err){console.warn('Extra city detail skipped: original buildings still available',err);}
+ // HD model downloads never block entry, driving, missions or map exploration.
+ void loadDetailedCars();
  // Start player-model loading immediately, without blocking city navigation.
  void loadRealHuman();
  state.loading=false;$('district').textContent=state.realMap?'BANANI / GULSHAN / MOHAKHALI':'BANANI / GULSHAN / MOHAKHALI · APPROXIMATE';
@@ -657,6 +681,9 @@ function drawMap(ctx,w,h,local){
 let mapTick=0;
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),now=clock.elapsedTime;
  if(!state.paused&&!state.largeMap&&!state.loading){updateControls(dt,now);if(state.playing){updateTraffic(dt);updatePedestrians(dt,now);}updateLighting(dt);if(++mapTick%5===0){drawMap(mapCtx,310,310,true)}}
+ if(highDetailVehicles&&state.playing&&!state.paused&&!state.largeMap){
+  highDetailVehicles.update(dt,state.inCar?userCar:null,carSpeed,traffic);
+ }
  renderer.render(scene,camera);
 }
 function bindUI(){
