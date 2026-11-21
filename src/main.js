@@ -5,6 +5,9 @@ import {StreetRouter,createLiveDhakaMap} from './map_navigation.js';
 import {cameraRelativeMove,steerVehicleYaw,minimapArrowRotation,gpsArrowRotationDegrees} from './control_math.js';
 import {UrbanGameplay,MISSIONS} from './gameplay.js';
 import {setupStreetLife} from './urban_runtime.js';
+import {CarjackController} from './carjacking.js';
+import {TileRadar,metersToPixels} from './radar_tiles.js';
+import {addNamedDhakaRoadSigns} from './osm_city_details.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -29,6 +32,9 @@ const DISTRICTS=[
 ];
 const game=new UrbanGameplay();
 const carDurability=new Map();
+const carjacking=new CarjackController();
+const fleeingDrivers=[];
+let roadNames=[];
 let urban=null,policeState={policeDistance:Infinity,busted:false},impactCooldown=0,hudFrame=0,jobsOpen=false;
 let jumpHeight=0,jumpVelocity=0,crouched=false;
 const M_PER_DEG_LAT=111320, M_PER_DEG_LON=111320*Math.cos(CENTER.lat*Math.PI/180);
@@ -43,6 +49,7 @@ let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,m
 let rainMesh, rainPositions, textures=[],spinner=0,skyDome,cityLights=[];
 let human=null, humanLoadError='', districtMarkers=[],highDetailVehicles=null;
 let roadRouter=null,routeInfo=null,leafletViewer=null,navTick=0;
+const tileRadar=new TileRadar({onTileReady:()=>{if(state.largeMap&&player)drawMap(fullCtx,920,660,false);}});
 const humanFallbackLabel='PROCEDURAL CHARACTER FALLBACK';
 const vec=(x,y,z)=>new T.Vector3(x,y,z);
 const geo=(lat,lon)=>({x:(lon-CENTER.lon)*M_PER_DEG_LON,z:-(lat-CENTER.lat)*M_PER_DEG_LAT});
@@ -501,7 +508,9 @@ async function setupWorld(){
  $('mapStatus').textContent='LOADING GULSHAN / BANANI / MOHAKHALI...';
  try{geometryMap=await fetchRealDhaka();state.realMap=true;$('mapStatus').textContent='REAL OSM ROAD NETWORK';toast('Gulshan, Banani & Mohakhali OSM street data loaded');}
  catch(err){console.warn('OSM unavailable, using clearly labeled sample scene:',err);geometryMap=proceduralFallback();state.realMap=false;$('mapStatus').textContent='MAP SERVICE OFFLINE · APPROXIMATE STREETS';$('district').textContent='3 DISTRICTS · SAMPLE SCENE';$('mapCredit').textContent='Approximate streets — NOT accurate; reload for OpenStreetMap.';}
- createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();spawnEntities();createDistrictMarkers();addRain();
+ createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();
+ if(state.realMap)roadNames=addNamedDhakaRoadSigns(T,scene,geometryMap.roads);
+ spawnEntities();createDistrictMarkers();addRain();
  // Route across actual connected OSM street nodes when available (not a straight line).
  if(state.realMap)roadRouter=new StreetRouter(geometryMap);
  leafletViewer=createLiveDhakaMap({panel:$('bigMap'),container:$('leafletMap'),canvas:fullCanvas,credit:$('mapCredit'),onStatus:message=>{$('streetMapStatus').textContent=message;},toGeo:inverseGeo,districts:DISTRICTS});
@@ -551,6 +560,7 @@ function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown',
  if(k==='x'){talkToPedestrian();return;}
  if(k==='c'){if(!state.inCar){crouched=!crouched;toast(crouched?'CROUCH MODE':'STANDING');}return;}
  if(k===' '&&!state.inCar&&jumpHeight===0){jumpVelocity=7.5;return;}
+ if(k==='f'){startCarjacking();return;}
  if(k==='e')enterExitVehicle();
  if(k==='t'){state.night=!state.night;toast(state.night?'NIGHT MODE · DHAKA AFTER DARK':'GOLDEN HOUR · EVENING')}
  if(k==='r'){state.rain=!state.rain;rainMesh.visible=state.rain;$('weatherText').textContent=state.rain?'MONSOON RAIN':'CLEAR';toast(state.rain?'MONSOON WEATHER ENABLED':'SKIES CLEARED')}
@@ -561,7 +571,7 @@ function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown',
  if(k==='3')jumpToDistrict('mohakhali');
  if(k==='4')jumpToDistrict('gulshan1');
 }
-// The nearest parked car OR an AI vehicle stopped for traffic is enterable.
+// E enters parked/empty vehicles; F forcibly takes an occupied traffic vehicle.
 function closestBoardableVehicle(){
  if(state.inCar)return null;
  let best=null,dist=14;
@@ -570,20 +580,19 @@ function closestBoardableVehicle(){
   if(d<dist){dist=d;best={vehicle,source,record,d};}
  };
  for(const p of parkedCars)check(p.object,'parked',p);
- for(const t of traffic)if(t.stoppedFor>.15)check(t.object,'traffic',t);
+ // Occupied traffic is intentionally NOT boardable with E. Use carjacking F.
  return best;
 }
 function enterExitVehicle(){
  if(!state.inCar){
   const near=closestBoardableVehicle();
-  if(!near){toast('Find a parked or stopped vehicle, move closer, then press E');return;}
-  if(near.source==='traffic'){const idx=traffic.indexOf(near.record);if(idx>=0)traffic.splice(idx,1);}
-  else {const idx=parkedCars.indexOf(near.record);if(idx>=0)parkedCars.splice(idx,1);}
+  if(!near){toast('E: EMPTY PARKED CAR · F: SNATCH OCCUPIED TRAFFIC CAR');return;}
+  const idx=parkedCars.indexOf(near.record);if(idx>=0)parkedCars.splice(idx,1);
   userCar=near.vehicle;state.inCar=true;player.x=userCar.position.x;player.z=userCar.position.z;
   carYaw=userCar.rotation.y;person.visible=false;carSpeed=0;
   crouched=false;jumpHeight=0;jumpVelocity=0;person.scale.y=1;
   game.carHealth=carDurability.get(userCar)??100;
-  if(near.source==='traffic'){game.addWanted(1,'commandeered a traffic vehicle');toast(game.lastEvent);}
+  // Ordinary parked cars remain usable without a carjacking timer.
   toast('ENTERED '+userCar.userData.kind.toUpperCase()+' · ↑/↓ ACCELERATE · ←/→ STEER · E EXIT');
  }else{
   if(Math.abs(carSpeed)>1.4){toast('Stop the car before getting out');return;}
@@ -617,6 +626,7 @@ function updatePedestrians(dt,elapsed){
 }
 function updateTraffic(dt){
  for(const t of traffic){
+  if(t.snatching){t.stoppedFor=Math.max(t.stoppedFor,2.5);t.actualSpeed=0;continue;}
   t.stopCooldown-=dt;
   if(t.stoppedFor>0){t.stoppedFor=Math.max(0,t.stoppedFor-dt);t.actualSpeed=0;}
   else if(t.stopCooldown<=0){t.stoppedFor=3.8+hash(t.length+t.progress)*3.5;t.stopCooldown=17+hash(t.progress+t.length)*20;t.actualSpeed=0;}
@@ -682,7 +692,9 @@ function updateControls(dt,elapsed){
  const prompt=$('interactionPrompt');
  if(prompt){
    if(state.inCar){prompt.innerHTML='<b>E</b> EXIT VEHICLE <small>STOP FIRST</small>';prompt.classList.add('show');}
+   else if(carjacking.active){prompt.innerHTML='<b>F</b> TAKING CAR <small>'+Math.round(carjacking.progress/carjacking.duration*100)+'% · STAY CLOSE</small>';prompt.classList.add('show');}
    else if(nearby){prompt.innerHTML='<b>E</b> ENTER '+nearby.vehicle.userData.kind.toUpperCase()+' <small>'+Math.ceil(nearby.d)+'m AWAY</small>';prompt.classList.add('show');}
+   else if(carjacking.closest(player,traffic,9)){prompt.innerHTML='<b>F</b> SNATCH OCCUPIED CAR <small>2.2s · POLICE ALERT</small>';prompt.classList.add('show');}
    else if(urban?.nearestService(player)?.distance<22){const service=urban.nearestService(player).service;prompt.textContent=service.id==='garage'?'G REPAIR · U ENGINE UPGRADE — BANANI GARAGE':'H HEAL — MOHAKHALI CLINIC';prompt.classList.add('show');}
    else{const npc=pedestrians.find(p=>Math.hypot(p.object.position.x-player.x,p.object.position.z-player.z)<6);if(npc){prompt.textContent='X · TALK TO PEDESTRIAN';prompt.classList.add('show');}else prompt.classList.remove('show');}
  }
@@ -756,6 +768,8 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
   updateControls(dt,now);
   if(state.playing){
    updateTraffic(dt);updatePedestrians(dt,now);
+   updateCarjacking(dt);
+   updateFleeingDrivers(dt,now);
    impactCooldown=Math.max(0,impactCooldown-dt);
    if(urban){policeState=urban.update(dt,{position:player,wanted:game.wanted,inCar:state.inCar,speed:carSpeed});
     if(policeState.busted)resetAfterArrest();}
@@ -883,7 +897,8 @@ function bindUI(){
    btn.addEventListener('pointercancel',release);
    btn.addEventListener('lostpointercapture',release);
  });
- $('touchAction')?.addEventListener('click',()=>{if(state.playing&&!state.paused)enterExitVehicle();});
+ $('touchAction')?.addEventListener('click',()=>{if(state.playing&&!state.paused&&!jobsOpen)enterExitVehicle();});
+ $('touchHijack')?.addEventListener('click',()=>{if(state.playing&&!state.paused&&!jobsOpen&&!state.largeMap)startCarjacking();});
  $('touchJump')?.addEventListener('pointerdown',event=>{
   event.preventDefault();
   event.currentTarget.setPointerCapture?.(event.pointerId);
