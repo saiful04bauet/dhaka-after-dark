@@ -1,6 +1,7 @@
 /* Dhaka / After Dark — original gameplay prototype. Runtime geodata: © OpenStreetMap contributors (ODbL). */
 import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails,loadReflectionEnvironment} from './environment_hd.js';
 import {installDetailedVehicles} from './vehicles_hd.js';
+import {StreetRouter,createLiveDhakaMap} from './map_navigation.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -35,6 +36,7 @@ let mapCanvas=$('minimap'),mapCtx=mapCanvas.getContext('2d'),fullCanvas=$('large
 let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,modeToastAt=0;
 let rainMesh, rainPositions, textures=[],spinner=0,skyDome,cityLights=[];
 let human=null, humanLoadError='', districtMarkers=[],highDetailVehicles=null;
+let roadRouter=null,routeInfo=null,leafletViewer=null,navTick=0;
 const humanFallbackLabel='PROCEDURAL CHARACTER FALLBACK';
 const vec=(x,y,z)=>new T.Vector3(x,y,z);
 const geo=(lat,lon)=>({x:(lon-CENTER.lon)*M_PER_DEG_LON,z:-(lat-CENTER.lat)*M_PER_DEG_LAT});
@@ -336,6 +338,8 @@ function pickMission(){
  return findNearestRoad(desired.x,desired.z);
 }
 function setMission(){
+ routeInfo=null;
+ roadRouter&&(roadRouter.last=null);
  missionTarget=pickMission();
  if(missionMarker)scene.remove(missionMarker);
  missionMarker=new T.Group();
@@ -489,6 +493,9 @@ async function setupWorld(){
  try{geometryMap=await fetchRealDhaka();state.realMap=true;$('mapStatus').textContent='REAL OSM ROAD NETWORK';toast('Gulshan, Banani & Mohakhali OSM street data loaded');}
  catch(err){console.warn('OSM unavailable, using clearly labeled sample scene:',err);geometryMap=proceduralFallback();state.realMap=false;$('mapStatus').textContent='MAP SERVICE OFFLINE · APPROXIMATE STREETS';$('district').textContent='3 DISTRICTS · SAMPLE SCENE';$('mapCredit').textContent='Approximate streets — NOT accurate; reload for OpenStreetMap.';}
  createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();spawnEntities();createDistrictMarkers();addRain();
+ // Route across actual connected OSM street nodes when available (not a straight line).
+ if(state.realMap)roadRouter=new StreetRouter(geometryMap);
+ leafletViewer=createLiveDhakaMap({panel:$('bigMap'),container:$('leafletMap'),canvas:fullCanvas,credit:$('mapCredit'),onStatus:message=>{$('streetMapStatus').textContent=message;},toGeo:inverseGeo,districts:DISTRICTS});
  try{
   const stats=decorateBuildingFacades(T,scene,geometryMap.buildings,DISTRICTS,geo);
   const street=placeDhakaStreetDetails(T,scene,DISTRICTS,geo,findNearestRoad);
@@ -509,7 +516,14 @@ async function setupWorld(){
  drawMap(mapCtx,310,310,true);drawMap(fullCtx,920,660,false);
 }
 function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
-function toggleMap(){state.largeMap=!state.largeMap;$('bigMap').classList.toggle('hidden',!state.largeMap);if(state.largeMap)drawMap(fullCtx,920,660,false)}
+function toggleMap(){
+ state.largeMap=!state.largeMap;
+ $('bigMap').classList.toggle('hidden',!state.largeMap);
+ if(state.largeMap){
+  drawMap(fullCtx,920,660,false);
+  if(leafletViewer)void leafletViewer.open(player,missionTarget,routeInfo);
+ }
+}
 function pause(v){state.paused=v;$('pause').classList.toggle('hidden',!v);if(v&&document.pointerLockElement)document.exitPointerLock()}
 function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys[k]=true;
  if(held[k])return;held[k]=true;
@@ -599,15 +613,17 @@ function updateControls(dt,elapsed){
   if(keys[' '])carSpeed*=Math.pow(.88,dt*60);
   const steer=strafe;
   const steerFactor=clamp(Math.abs(carSpeed)/7,0,1);
-  carYaw+=steer*dt*(carSpeed>=0?1:-1)*.95*steerFactor;
+  // Camera views vehicles from behind: increasing yaw is screen-left, so invert steering.
+  carYaw-=steer*dt*(carSpeed>=0?1:-1)*.95*steerFactor;
   const nx=userCar.position.x+Math.sin(carYaw)*carSpeed*dt,nz=userCar.position.z+Math.cos(carYaw)*carSpeed*dt;
   if(Math.abs(nx)<CITY_RADIUS&&Math.abs(nz)<CITY_RADIUS&&!collidesWithBuilding(nx,nz)){userCar.position.set(nx,0,nz);player.x=nx;player.z=nz;}else carSpeed*=-.24;
   userCar.rotation.y=carYaw;player.yaw=carYaw;
   if(!mouseDown)cameraYaw=smoothAngle(cameraYaw,carYaw,dt*1.75);
   walkSpeed=Math.abs(carSpeed)*3.6;
  }else{
-  let mx=Math.sin(cameraYaw)*fw+Math.cos(cameraYaw)*strafe;
-  let mz=Math.cos(cameraYaw)*fw-Math.sin(cameraYaw)*strafe;
+  // Camera-right vector is (-cos(yaw), +sin(yaw)) in this third-person setup.
+  let mx=Math.sin(cameraYaw)*fw-Math.cos(cameraYaw)*strafe;
+  let mz=Math.cos(cameraYaw)*fw+Math.sin(cameraYaw)*strafe;
   const mag=Math.hypot(mx,mz),speed=keys['shift']?8.1:4.2;walkSpeed=mag?speed*3.6:0;
   if(mag>0){mx/=mag;mz/=mag;const nx=player.x+mx*speed*dt,nz=player.z+mz*speed*dt;
    if(Math.abs(nx)<CITY_RADIUS&&Math.abs(nz)<CITY_RADIUS&&!collidesWithBuilding(nx,nz)){player.x=nx;player.z=nz;}
@@ -635,15 +651,22 @@ function updateControls(dt,elapsed){
    else if(nearby){prompt.innerHTML='<b>E</b> ENTER '+nearby.vehicle.userData.kind.toUpperCase()+' <small>'+Math.ceil(nearby.d)+'m AWAY</small>';prompt.classList.add('show');}
    else prompt.classList.remove('show');
  }
- const heading=Math.atan2(missionTarget.x-player.x,missionTarget.z-player.z);
+ // Calculate a path along the available OSM road network. A straight-line
+ // bearing is only shown when live network data cannot produce a connected route.
+ if(state.realMap&&roadRouter&&navTick++%35===0){
+  routeInfo=roadRouter.route({x:player.x,z:player.z},missionTarget);
+  leafletViewer?.sync({x:player.x,z:player.z},missionTarget,routeInfo);
+ }
+ const heading=routeInfo?.bearing??Math.atan2(missionTarget.x-player.x,missionTarget.z-player.z);
  const navArrow=$('navArrow'),navMeters=$('navMeters'),navStreet=$('navStreet');
- if(navArrow)navArrow.style.transform='rotate('+((heading-cameraYaw)*180/Math.PI)+'deg)';
- if(navMeters)navMeters.textContent=Math.ceil(Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z))+' m';
+ if(navArrow)navArrow.style.transform='rotate('+(-(heading-cameraYaw)*180/Math.PI)+'deg)';
+ if(navMeters)navMeters.textContent=Math.ceil(routeInfo?.distance??Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z))+' m';
  if(navStreet)navStreet.textContent=DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]).name;
  const district=nearestDistrict(player.x,player.z);
  $('district').textContent=district.name+(state.realMap?'':' · APPROX.');
  const gp=inverseGeo(player.x,player.z);$('coords').textContent=`${gp.lat.toFixed(5)}° N, ${gp.lon.toFixed(5)}° E`;
- const distance=Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z);$('missionDistance').textContent=Math.ceil(distance)+' m TO TARGET';
+ const distance=Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z);
+ $('missionDistance').textContent=Math.ceil(routeInfo?.distance??distance)+' m '+(routeInfo?.roadBased?'BY ROAD':'STRAIGHT-LINE');
  if(distance<8){state.cash+=500;state.missionIndex++;$('missionCredits').textContent='৳ '+state.cash.toLocaleString();toast('MISSION COMPLETE · ৳500 EARNED');setMission()}
  if(missionMarker){missionHalo.rotation.z+=dt*.65;missionMarker.children[1].position.y=8.2+Math.sin(elapsed*2)*.45;}
  if(rainMesh?.visible){rainMesh.position.set(player.x,0,player.z);const p=rainMesh.geometry.attributes.position;
@@ -686,7 +709,7 @@ function drawMap(ctx,w,h,local){
 }
 let mapTick=0;
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),now=clock.elapsedTime;
- if(!state.paused&&!state.largeMap&&!state.loading){updateControls(dt,now);if(state.playing){updateTraffic(dt);updatePedestrians(dt,now);}updateLighting(dt);if(++mapTick%5===0){drawMap(mapCtx,310,310,true)}}
+ if(!state.paused&&!state.largeMap&&!state.loading){updateControls(dt,now);if(state.playing){updateTraffic(dt);updatePedestrians(dt,now);}updateLighting(dt);if(++mapTick%18===0){drawMap(mapCtx,310,310,true)}}
  if(highDetailVehicles&&state.playing&&!state.paused&&!state.largeMap){
   highDetailVehicles.update(dt,state.inCar?userCar:null,carSpeed,traffic);
  }
@@ -706,6 +729,7 @@ function bindUI(){
  $('touchAction')?.addEventListener('click',()=>{if(state.playing&&!state.paused)enterExitVehicle();});
  $('play').onclick=()=>{if(state.loading){toast('Map is still loading');return}state.playing=true;$('intro').classList.add('hidden');toast(state.realMap?'WELCOME · REAL OSM STREET GEOMETRY':'MAP SERVICE OFFLINE · APPROXIMATE DISTRICT ROAD LAYOUT')};
  $('resume').onclick=()=>pause(false);$('restart').onclick=()=>location.reload();$('retry').onclick=()=>location.reload();$('closeMap').onclick=toggleMap;
+ $('recenterMap')?.addEventListener('click',()=>leafletViewer?.recenter(player));
  document.addEventListener('keydown',handleKeyDown);document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;held[e.key.toLowerCase()]=false});
  document.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;for(const k in held)held[k]=false});
  $('world').addEventListener('mousedown',e=>{if(e.button===0)mouseDown=true;mousePrevX=e.clientX});
