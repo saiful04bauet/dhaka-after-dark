@@ -123,11 +123,20 @@ function roadQuad(a,b,width,y=.015){const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(d
  return [a.x+nx,y,a.z+nz,b.x+nx,y,b.z+nz,b.x-nx,y,b.z-nz,a.x+nx,y,a.z+nz,b.x-nx,y,b.z-nz,a.x-nx,y,a.z-nz];}
 function bufferMesh(verts,mat){if(!verts.length)return null;const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(verts,3));g.computeVertexNormals();const m=new T.Mesh(g,mat);m.receiveShadow=true;scene.add(m);cityObjects.push(m);return m;}
 function addRoads(){
- const main=[],side=[],edge=[],line=[],dash=[];let streetCount=0;
+ const main=[],side=[],edge=[],line=[],dash=[],crosswalk=[];let streetCount=0,crossingCount=0;
  for(const road of geometryMap.roads){const p=road.points;const width=road.width;const isMain=width>=8;streetCount++;
   for(let i=1;i<p.length;i++){let a=p[i-1],b=p[i];let dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<1)continue;
    const q=roadQuad(a,b,width,.035);if(q)(isMain?main:side).push(...q);
    const shoulder=roadQuad(a,b,width+2.9,.007);if(shoulder)edge.push(...shoulder);
+   if(isMain&&len>28&&streetCount%9===0&&i%3===1&&crossingCount<85){
+     crossingCount++;
+     for(let stripe=0;stripe<8;stripe++){
+       const u=(len*.38+stripe*.93)/len,v=(len*.38+stripe*.93+.46)/len;
+       const c={x:lerp(a.x,b.x,u),z:lerp(a.z,b.z,u)};
+       const d={x:lerp(a.x,b.x,v),z:lerp(a.z,b.z,v)};
+       const quad=roadQuad(c,d,width*.79,.079);if(quad)crosswalk.push(...quad);
+     }
+   }
    if(isMain){const step=12;for(let s=4;s<len-2;s+=step){let u=s/len,v=Math.min((s+4)/len,1);const c={x:lerp(a.x,b.x,u),z:lerp(a.z,b.z,u)},d={x:lerp(a.x,b.x,v),z:lerp(a.z,b.z,v)};
     const stripe=roadQuad(c,d,.16,.067);if(stripe)dash.push(...stripe);
    }}
@@ -136,7 +145,8 @@ function addRoads(){
  }
  bufferMesh(edge,new T.MeshStandardMaterial({color:0x797b73,roughness:1}));
  bufferMesh(side,roadMaterial);bufferMesh(main,roadMajorMaterial);
- const dmat=new T.MeshBasicMaterial({color:0xbfc0ad,transparent:true,opacity:.66,side:T.DoubleSide});bufferMesh(dash,dmat);
+ const dmat=new T.MeshBasicMaterial({color:0xe0e2dd,transparent:true,opacity:.75,side:T.DoubleSide});bufferMesh(dash,dmat);
+ bufferMesh(crosswalk,new T.MeshStandardMaterial({color:0xc9ceca,roughness:.86,transparent:true,opacity:.87,side:T.DoubleSide}));
 }
 function createBuildings(){
  let count=0;
@@ -157,6 +167,22 @@ function createBuildings(){
    collisionShapes.push({minX,maxX,minZ,maxZ,points:distinct});
    if(hash(id+99)>.75&&height>12&&count<650){const roof=box(Math.min(5,(maxX-minX)*.35),1.5,Math.min(5,(maxZ-minZ)*.35),paint(0x777d7b),.5*(minX+maxX),height+.75,.5*(minZ+maxZ));scene.add(roof);cityObjects.push(roof)}
    if(hash(id+11)>.8){const tank=cylinder(.9,.9,2,paint(0x373d41),.5*(minX+maxX),height+1,.5*(minZ+maxZ),10);scene.add(tank);cityObjects.push(tank)}
+   // Ground-floor commercial detail and parapets on a bounded near-field sample.
+   if(count<230&&height>11&&(maxX-minX)>7&&(maxZ-minZ)>8){
+     const frontWidth=Math.min(maxX-minX-1.4,17);
+     if(frontWidth>5&&hash(id+69)>.26){
+       const shopGlass=box(frontWidth,2.6,.12,new T.MeshPhysicalMaterial({color:0x29434e,metalness:.28,roughness:.2,clearcoat:.7}),.5*(minX+maxX),1.55,minZ-.1);
+       scene.add(shopGlass);cityObjects.push(shopGlass);
+       const header=box(frontWidth+.45,.45,.7,paint(hash(id+4)>.5?0x394956:0x735342,.73),.5*(minX+maxX),3.18,minZ-.55);
+       scene.add(header);cityObjects.push(header);
+       const pillar=box(.34,3.2,.45,paint(0xb3ada0),minX+1.2,1.6,minZ-.38);
+       scene.add(pillar);cityObjects.push(pillar);
+     }
+     if(hash(id+14)>.6){
+       const parapet=box(Math.min(30,maxX-minX),.62,.38,paint(0x989b99),.5*(minX+maxX),height+.32,minZ+.4);
+       scene.add(parapet);cityObjects.push(parapet);
+     }
+   }
   }catch(err){}
  }
  return count;
@@ -185,6 +211,7 @@ function addCityFurniture(){
    const pole=cylinder(.13,.16,8,poleMat,x,4,z,8);scene.add(pole);cityObjects.push(pole);
    const arm=box(2.2,.17,.16,poleMat,x+1,7.85,z);scene.add(arm);cityObjects.push(arm);
    const lamp=box(.83,.1,.62,lightMat,x+2.05,7.72,z);scene.add(lamp);cityObjects.push(lamp);
+   if(c%8===0&&cityLights.length<16){const glow=new T.PointLight(0xffc78e,0,34,2);glow.position.set(x+2.05,7.3,z);scene.add(glow);cityLights.push(glow);}
   }
  }
  }
@@ -228,7 +255,20 @@ function makeCar(color=0x78878b,type='sedan'){
  }
  car.add(box(w*.64,.14,.12,brake,0,.79,-long/2-.03));car.add(box(w*.66,.15,.13,lamp,0,.86,long/2+.03));
  for(let s of [-1,1]){car.add(box(.35,.13,.05,lamp,s*w*.34,1.03,long/2+.07));car.add(box(.35,.13,.05,brake,s*w*.34,1.03,-long/2-.07));}
- if(!isBus&&!isCng){for(let s of [-1,1])car.add(box(.25,.11,.32,dark,s*w*.52,1.47,.57));}
+ if(!isBus&&!isCng){
+  const grille=new T.MeshStandardMaterial({color:0x1b252e,roughness:.35,metalness:.55}),chrome=paint(0x93999b,.25,.75);
+  car.add(box(w*.54,.24,.055,grille,0,.75,long/2+.05));
+  for(const side of [-1,1]){
+    car.add(box(.25,.11,.32,dark,side*w*.52,1.47,.57)); // wing mirrors
+    car.add(box(.075,.33,long*.34,chrome,side*w*.48,.76,-.38)); // sills
+    car.add(box(.12,.12,long*.55,dark,side*w*.51,.52,-.1));
+    car.add(box(.19,.26,.06,lamp,side*w*.34,.98,long/2+.11));
+    car.add(box(.2,.19,.06,brake,side*w*.34,.92,-long/2-.11));
+   }
+   car.add(box(w*.67,.19,.16,grille,0,.50,long/2+.07)); // lower bumper intake
+   car.add(box(w*.7,.11,.17,chrome,0,.57,-long/2-.08)); // rear bumper
+   car.add(box(.43,.14,.045,chrome,0,.72,-long/2-.18)); // rear plate
+ }
  car.userData={kind:type,length:long};return car;
 }
 function pointInPolygon(x,z,points){
