@@ -7,7 +7,7 @@ import {UrbanGameplay,MISSIONS} from './gameplay.js';
 import {setupStreetLife} from './urban_runtime.js';
 import {CarjackController} from './carjacking.js';
 import {TileRadar,metersToPixels} from './radar_tiles.js';
-import {addNamedDhakaRoadSigns} from './osm_city_details.js';
+import {addNamedDhakaRoadSigns,selectBalancedBuildings} from './osm_city_details.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -44,6 +44,7 @@ let geometryMap={roads:[],buildings:[],parks:[],waters:[],source:'procedural'};
 let scene,camera,renderer,clock,sun,hemi,ground,player,person,userCar,cameraTarget=new T.Vector3();
 let roadMaterial,roadMajorMaterial,sideMaterial,buildingMaterials=[],roofMaterials=[],windowMaterials=[],treeCanopy;
 let cityObjects=[],traffic=[],parkedCars=[],pedestrians=[],collisionShapes=[],trafficRoutes=[],missionMarker,missionHalo,missionTarget={x:0,z:0},roadPoints=[];
+let renderedBuildings=[];
 let mapCanvas=$('minimap'),mapCtx=mapCanvas.getContext('2d'),fullCanvas=$('largeMap'),fullCtx=fullCanvas.getContext('2d');
 let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,modeToastAt=0;
 let rainMesh, rainPositions, textures=[],spinner=0,skyDome,cityLights=[];
@@ -167,7 +168,7 @@ function addRoads(){
 }
 function createBuildings(){
  let count=0;
- for(const b of geometryMap.buildings){if(count>=1350)break;const ps=b.points;if(ps.length<4)continue;
+ for(const b of selectBalancedBuildings(geometryMap.buildings,DISTRICTS,geo,1800)){if(count>=1350)break;const ps=b.points;if(ps.length<4)continue;
   const distinct=ps.slice(0,-1);let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
   for(const p of distinct){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z)}
   const area=(maxX-minX)*(maxZ-minZ);if(area<9||area>22000)continue;
@@ -181,6 +182,7 @@ function createBuildings(){
    const shape=new T.Shape(distinct.map(p=>new T.Vector2(p.x,-p.z)));
    const g=new T.ExtrudeGeometry(shape,{depth:height,steps:1,bevelEnabled:false,curveSegments:1});g.rotateX(-Math.PI/2);
    const m=new T.Mesh(g,[roofMaterials[ix],buildingMaterials[ix]]);m.castShadow=count<240;m.receiveShadow=true;scene.add(m);cityObjects.push(m);count++;
+   renderedBuildings.push(b);
    collisionShapes.push({minX,maxX,minZ,maxZ,points:distinct});
    if(hash(id+99)>.75&&height>12&&count<650){const roof=box(Math.min(5,(maxX-minX)*.35),1.5,Math.min(5,(maxZ-minZ)*.35),paint(0x777d7b),.5*(minX+maxX),height+.75,.5*(minZ+maxZ));scene.add(roof);cityObjects.push(roof)}
    if(hash(id+11)>.8){const tank=cylinder(.9,.9,2,paint(0x373d41),.5*(minX+maxX),height+1,.5*(minZ+maxZ),10);scene.add(tank);cityObjects.push(tank)}
@@ -373,7 +375,7 @@ async function fetchRealDhaka(){
  const bbox=BBOX.join(',');
  // Roads throughout the three-zone area; building outlines focused around
  // game districts to avoid a huge, unstable, citywide browser data transfer.
- const query=`[out:json][timeout:38];(way["highway"](${bbox});way["building"](23.786,90.398,23.798,90.419);way["building"](23.775,90.393,23.785,90.405);way["leisure"="park"](${bbox});way["landuse"="grass"](${bbox});way["natural"="water"](${bbox}););out geom;`;
+ const query=`[out:json][timeout:38];(way["highway"](${bbox});way["building"](23.786,90.398,23.798,90.419);way["building"](23.775,90.393,23.785,90.405);way["building"](23.792,90.409,23.8005,90.4205);way["building"](23.777,90.411,23.785,90.423);way["leisure"="park"](${bbox});way["landuse"="grass"](${bbox});way["natural"="water"](${bbox}););out geom;`;
  const hosts=['https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
  let error;
  for(const host of hosts){
@@ -517,7 +519,7 @@ async function setupWorld(){
  urban=setupStreetLife(T,scene,{makeCar,findNearestRoad,geo,anchors:DISTRICTS,collidesWithBuilding});
  refreshGameplayHUD();
  try{
-  const stats=decorateBuildingFacades(T,scene,geometryMap.buildings,DISTRICTS,geo);
+  const stats=decorateBuildingFacades(T,scene,renderedBuildings,DISTRICTS,geo);
   const street=placeDhakaStreetDetails(T,scene,DISTRICTS,geo,findNearestRoad);
   console.info('Improved building facades and Dhaka street details',stats,street);
  }catch(err){console.warn('Extra city detail skipped: original buildings still available',err);}
