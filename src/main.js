@@ -2,6 +2,7 @@
 import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails,loadReflectionEnvironment} from './environment_hd.js';
 import {installDetailedVehicles} from './vehicles_hd.js';
 import {StreetRouter,createLiveDhakaMap} from './map_navigation.js';
+import {cameraRelativeMove,steerVehicleYaw,minimapArrowRotation,gpsArrowRotationDegrees} from './control_math.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -614,7 +615,7 @@ function updateControls(dt,elapsed){
   const steer=strafe;
   const steerFactor=clamp(Math.abs(carSpeed)/7,0,1);
   // Camera views vehicles from behind: increasing yaw is screen-left, so invert steering.
-  carYaw-=steer*dt*(carSpeed>=0?1:-1)*.95*steerFactor;
+  carYaw=steerVehicleYaw(carYaw,steer,dt,carSpeed,steerFactor);
   const nx=userCar.position.x+Math.sin(carYaw)*carSpeed*dt,nz=userCar.position.z+Math.cos(carYaw)*carSpeed*dt;
   if(Math.abs(nx)<CITY_RADIUS&&Math.abs(nz)<CITY_RADIUS&&!collidesWithBuilding(nx,nz)){userCar.position.set(nx,0,nz);player.x=nx;player.z=nz;}else carSpeed*=-.24;
   userCar.rotation.y=carYaw;player.yaw=carYaw;
@@ -622,8 +623,8 @@ function updateControls(dt,elapsed){
   walkSpeed=Math.abs(carSpeed)*3.6;
  }else{
   // Camera-right vector is (-cos(yaw), +sin(yaw)) in this third-person setup.
-  let mx=Math.sin(cameraYaw)*fw-Math.cos(cameraYaw)*strafe;
-  let mz=Math.cos(cameraYaw)*fw+Math.sin(cameraYaw)*strafe;
+  const direction=cameraRelativeMove(cameraYaw,fw,strafe);
+  let mx=direction.x,mz=direction.z;
   const mag=Math.hypot(mx,mz),speed=keys['shift']?8.1:4.2;walkSpeed=mag?speed*3.6:0;
   if(mag>0){mx/=mag;mz/=mag;const nx=player.x+mx*speed*dt,nz=player.z+mz*speed*dt;
    if(Math.abs(nx)<CITY_RADIUS&&Math.abs(nz)<CITY_RADIUS&&!collidesWithBuilding(nx,nz)){player.x=nx;player.z=nz;}
@@ -659,7 +660,7 @@ function updateControls(dt,elapsed){
  }
  const heading=routeInfo?.bearing??Math.atan2(missionTarget.x-player.x,missionTarget.z-player.z);
  const navArrow=$('navArrow'),navMeters=$('navMeters'),navStreet=$('navStreet');
- if(navArrow)navArrow.style.transform='rotate('+(-(heading-cameraYaw)*180/Math.PI)+'deg)';
+ if(navArrow)navArrow.style.transform='rotate('+gpsArrowRotationDegrees(heading,cameraYaw)+'deg)';
  if(navMeters)navMeters.textContent=Math.ceil(routeInfo?.distance??Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z))+' m';
  if(navStreet)navStreet.textContent=DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]).name;
  const district=nearestDistrict(player.x,player.z);
@@ -705,7 +706,7 @@ function drawMap(ctx,w,h,local){
  ctx.strokeStyle=routeInfo?.roadBased?'#56b6fa':'#eab266';ctx.lineWidth=local?3:4;
  routePoints.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.restore();
  const [mx,my]=project(missionTarget);ctx.beginPath();ctx.fillStyle='#eab266';ctx.arc(mx,my,local?5:8,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.strokeStyle='#eab266';ctx.lineWidth=1;ctx.arc(mx,my,local?12:16,0,Math.PI*2);ctx.stroke();
- const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(Math.PI-player.yaw);
+ const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(minimapArrowRotation(player.yaw));
  ctx.fillStyle='#91c9ed';ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(6,9);ctx.lineTo(0,5);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore();
  if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?(routeInfo?'OSM CONNECTED STREET ROUTE':'OSM STREETS · BEARING ONLY'):'SIMULATED FALLBACK · BEARING ONLY',25,53);}
  ctx.restore();
