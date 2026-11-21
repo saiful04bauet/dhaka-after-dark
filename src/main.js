@@ -30,6 +30,7 @@ const DISTRICTS=[
 const game=new UrbanGameplay();
 const carDurability=new Map();
 let urban=null,policeState={policeDistance:Infinity,busted:false},impactCooldown=0,hudFrame=0,jobsOpen=false;
+let jumpHeight=0,jumpVelocity=0,crouched=false;
 const M_PER_DEG_LAT=111320, M_PER_DEG_LON=111320*Math.cos(CENTER.lat*Math.PI/180);
 const state={playing:false,paused:false,inCar:false,night:false,rain:false,wideCamera:false,largeMap:false,cash:game.cash,missionIndex:game.missionIndex,time:17.67,loading:true,realMap:false};
 const keys={};const held={};
@@ -547,6 +548,9 @@ function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown',
  if(k==='h'){clinicAction();return;}
  if(k==='k'){toast(game.save(player)?'PROGRESS SAVED ON THIS BROWSER':'BROWSER STORAGE UNAVAILABLE');return;}
  if(k==='b'){if(state.inCar)horn();return;}
+ if(k==='x'){talkToPedestrian();return;}
+ if(k==='c'){if(!state.inCar){crouched=!crouched;toast(crouched?'CROUCH MODE':'STANDING');}return;}
+ if(k===' '&&!state.inCar&&jumpHeight===0){jumpVelocity=7.5;return;}
  if(k==='e')enterExitVehicle();
  if(k==='t'){state.night=!state.night;toast(state.night?'NIGHT MODE · DHAKA AFTER DARK':'GOLDEN HOUR · EVENING')}
  if(k==='r'){state.rain=!state.rain;rainMesh.visible=state.rain;$('weatherText').textContent=state.rain?'MONSOON RAIN':'CLEAR';toast(state.rain?'MONSOON WEATHER ENABLED':'SKIES CLEARED')}
@@ -577,6 +581,7 @@ function enterExitVehicle(){
   else {const idx=parkedCars.indexOf(near.record);if(idx>=0)parkedCars.splice(idx,1);}
   userCar=near.vehicle;state.inCar=true;player.x=userCar.position.x;player.z=userCar.position.z;
   carYaw=userCar.rotation.y;person.visible=false;carSpeed=0;
+  crouched=false;jumpHeight=0;jumpVelocity=0;person.scale.y=1;
   game.carHealth=carDurability.get(userCar)??100;
   if(near.source==='traffic'){game.addWanted(1,'commandeered a traffic vehicle');toast(game.lastEvent);}
   toast('ENTERED '+userCar.userData.kind.toUpperCase()+' · ↑/↓ ACCELERATE · ←/→ STEER · E EXIT');
@@ -649,7 +654,7 @@ function updateControls(dt,elapsed){
   // Camera-right vector is (-cos(yaw), +sin(yaw)) in this third-person setup.
   const direction=cameraRelativeMove(cameraYaw,fw,strafe);
   let mx=direction.x,mz=direction.z;
-  const mag=Math.hypot(mx,mz),speed=keys['shift']&&game.stamina>5?8.1:4.2;walkSpeed=mag?speed*3.6:0;
+  const mag=Math.hypot(mx,mz),speed=crouched?1.9:keys['shift']&&game.stamina>5?8.1:4.2;walkSpeed=mag?speed*3.6:0;
   if(mag>0){mx/=mag;mz/=mag;const nx=player.x+mx*speed*dt,nz=player.z+mz*speed*dt;
    if(Math.abs(nx)<CITY_RADIUS&&Math.abs(nz)<CITY_RADIUS&&!collidesWithBuilding(nx,nz)){player.x=nx;player.z=nz;}
    player.yaw=smoothAngle(player.yaw,Math.atan2(mx,mz),Math.min(1,dt*13));
@@ -657,14 +662,18 @@ function updateControls(dt,elapsed){
   person.position.set(player.x,0,player.z);person.rotation.y=player.yaw;
   const phase=elapsed*(keys['shift']?14:9),stride=mag?Math.sin(phase)*.67:0;person.userData.legs[0].rotation.x=stride;person.userData.legs[1].rotation.x=-stride;
   person.userData.arms[0].rotation.x=-stride*.72;person.userData.arms[1].rotation.x=stride*.72;
-  person.position.y=human?0:Math.abs(stride)*.055;
-  if(human)human.update(dt,mag>.05,!!keys['shift']);
+  jumpHeight+=jumpVelocity*dt;
+  if(jumpHeight>0||jumpVelocity>0){jumpVelocity-=19*dt;if(jumpHeight<0){jumpHeight=0;jumpVelocity=0;}}
+  else jumpHeight=0;
+  person.scale.y=crouched?.76:1;
+  person.position.y=jumpHeight+(human?0:Math.abs(stride)*.055);
+  if(human)human.update(dt,mag>.05&&jumpHeight<.2,!!keys['shift']&&!crouched);
  }
  if(keys['q'])cameraYaw-=dt*1.65;
  if(keys['f'])cameraYaw+=dt*1.65;
  const dist=state.wideCamera?25:state.inCar?13:5.7;
  const height=state.wideCamera?14:state.inCar?6.4:3.7;
- sun.position.set(player.x-150,290,player.z-100);sun.target.position.set(player.x,0,player.z);const target=vec(player.x,state.inCar?1.8:1.62,player.z);
+ sun.position.set(player.x-150,290,player.z-100);sun.target.position.set(player.x,0,player.z);const target=vec(player.x,state.inCar?1.8:crouched?1.15:1.62+jumpHeight*.3,player.z);
  cameraTarget.lerp(target,1-Math.exp(-dt*8));
  const dest=vec(target.x-Math.sin(cameraYaw)*dist,height,target.z-Math.cos(cameraYaw)*dist);
  camera.position.lerp(dest,1-Math.exp(-dt*4.4));camera.lookAt(cameraTarget);
@@ -674,7 +683,8 @@ function updateControls(dt,elapsed){
  if(prompt){
    if(state.inCar){prompt.innerHTML='<b>E</b> EXIT VEHICLE <small>STOP FIRST</small>';prompt.classList.add('show');}
    else if(nearby){prompt.innerHTML='<b>E</b> ENTER '+nearby.vehicle.userData.kind.toUpperCase()+' <small>'+Math.ceil(nearby.d)+'m AWAY</small>';prompt.classList.add('show');}
-   else prompt.classList.remove('show');
+   else if(urban?.nearestService(player)?.distance<22){const service=urban.nearestService(player).service;prompt.textContent=service.id==='garage'?'G REPAIR · U ENGINE UPGRADE — BANANI GARAGE':'H HEAL — MOHAKHALI CLINIC';prompt.classList.add('show');}
+   else{const npc=pedestrians.find(p=>Math.hypot(p.object.position.x-player.x,p.object.position.z-player.z)<6);if(npc){prompt.textContent='X · TALK TO PEDESTRIAN';prompt.classList.add('show');}else prompt.classList.remove('show');}
  }
  // Calculate a path along the available OSM road network. A straight-line
  // bearing is only shown when live network data cannot produce a connected route.
@@ -834,6 +844,23 @@ function renderJobBoard(){
 }
 function closeJobs(){jobsOpen=false;$('jobBoard').classList.add('hidden');}
 function toggleJobs(){jobsOpen=!jobsOpen;$('jobBoard').classList.toggle('hidden',!jobsOpen);if(jobsOpen)renderJobBoard();}
+function talkToPedestrian(){
+ if(state.inCar){toast('EXIT YOUR VEHICLE TO TALK');return;}
+ let nearest=null,d=7;
+ for(let i=0;i<pedestrians.length;i++){
+  const p=pedestrians[i],distance=Math.hypot(p.object.position.x-player.x,p.object.position.z-player.z);
+  if(distance<d){d=distance;nearest=i;}
+ }
+ if(nearest===null){toast('MOVE NEAR A PEDESTRIAN AND PRESS X');return;}
+ const lines=[
+  'DHAKA LOCAL: Banani Road 11 is always busy this evening.',
+  'DHAKA LOCAL: Heard there are jobs around the district. Press J.',
+  'DHAKA LOCAL: Mohakhali traffic can get serious. Drive carefully.',
+  'DHAKA LOCAL: You can visit the garage to repair a damaged car.',
+  'DHAKA LOCAL: Try the Gulshan circle. The city looks great at night.'
+ ];
+ toast(lines[nearest%lines.length]);
+}
 function horn(){
  try{
   const AC=window.AudioContext||window.webkitAudioContext;
