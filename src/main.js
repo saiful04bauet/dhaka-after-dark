@@ -884,6 +884,20 @@ function bindUI(){
    btn.addEventListener('lostpointercapture',release);
  });
  $('touchAction')?.addEventListener('click',()=>{if(state.playing&&!state.paused)enterExitVehicle();});
+ $('touchJump')?.addEventListener('pointerdown',event=>{
+  event.preventDefault();
+  if(!state.playing||state.paused||jobsOpen||state.largeMap)return;
+  if(state.inCar){keys[' ']=true;return;}
+  if(jumpHeight===0)jumpVelocity=7.5;
+ });
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])$('touchJump')?.addEventListener(type,()=>{keys[' ']=false;});
+ $('touchInteract')?.addEventListener('click',()=>{
+  if(!state.playing||state.paused||jobsOpen)return;
+  const close=urban?.nearestService(player);
+  if(close&&close.distance<close.service.radius){
+   if(close.service.id==='garage')garageAction(false);else clinicAction();
+  }else talkToPedestrian();
+ });
  $('play').onclick=()=>{if(state.loading){toast('Map is still loading');return}state.playing=true;$('intro').classList.add('hidden');if(!game.missionActive)game.startMission();refreshGameplayHUD();toast(state.realMap?'STREET LIFE STARTED · REAL NORTH DHAKA':'STREET LIFE STARTED · APPROXIMATE MAP')};
  $('resume').onclick=()=>pause(false);$('restart').onclick=()=>location.reload();$('retry').onclick=()=>location.reload();$('closeMap').onclick=toggleMap;
  $('recenterMap')?.addEventListener('click',()=>leafletViewer?.recenter(player));
