@@ -1,4 +1,4 @@
-# DHAKA / AFTER DARK — ভার্সন ০.৩
+# DHAKA / AFTER DARK — ভার্সন ০.৪
 
 ঢাকার **গুলশান, বনানী ও মহাখালী** নিয়ে তৈরি প্রথম playable browser-based 3D game prototype। এটি GTA 6-এর মতো সম্পূর্ণ realistic commercial game নয়। প্রথম version-এর শাহবাগ ম্যাপ বদলে এখানে **Gulshan 2, Banani Road 11, Mohakhali Bus Stand এবং Gulshan 1** নেওয়া হয়েছে।
 
@@ -16,6 +16,16 @@
 - **থেমে থাকা গাড়িতে ওঠা:** কাছের parked sedan/CNG বা traffic-এ থেমে থাকা vehicle-এর কাছে গিয়ে **E** বা **ENTER/EXIT** চাপবে। চলন্ত গাড়িতে ওঠা যাবে না। গাড়ির গতি কমিয়ে দাঁড় করিয়ে E চাপলে নামবে।
 - **GPS indicator:** Checkpoint-এর দিকে ঘুরতে থাকা arrow ও দূরত্ব, minimap, বড় map এবং destination line। লাইনটি সরাসরি direction, actual road-navigation route নয়।
 - **Scene:** 3D sky, improved lighting/shadow, wet road, zebra crossing, storefront glass, road lights ও গাড়ির extra details।
+
+## ভার্সন ০.৪ — Buildings, Vehicles ও Environment
+
+- **Buildings:** OSM building footprints-এর ওপর অতিরিক্ত glass panels, floor-wise windows, metal trim এবং city detail। এগুলো বাস্তব ভবনের exact ডিজাইন নয়।
+- **Vehicles:** CC0 licensed real GLB 3D models — sedan, SUV, city bus এবং CNG/auto-rickshaw। Download হয়ে গেলে game-এ procedural গাড়ির বদলে বিস্তারিত mesh দেখা যায়। Model unavailable হলে game-এর basic গাড়ি চালানো যাবে।
+- **Environment:** ঢাকার রাস্তার পরিবেশের জন্য bus shelter, bench, বৈদ্যুতিক খুঁটি ও তার, নতুন leafy trees এবং improved materials।
+- **Lighting:** Poly Haven-এর CC0 Urban Street HDRI থেকে optional reflection lighting; network unavailable হলে আগের lighting চলবে।
+- সবকিছু **Gulshan–Banani–Mohakhali** zone-এর ওপর। AAA GTA 6 photorealistic graphics দাবি করা হচ্ছে না।
+
+Asset credits ও direct source URLs ইংরেজি README-তে আছে। এই build-এ external 3D models browser-এর মাধ্যমে load হয়, ZIP/repo-তে মডেল binary রাখা হয়নি।
 
 ## কীভাবে চালাবে
 
