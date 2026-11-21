@@ -1,7 +1,18 @@
-# DHAKA / AFTER DARK — ভার্সন ০.৬
+# DHAKA / AFTER DARK — ভার্সন ০.৭
 
 ঢাকার **গুলশান, বনানী ও মহাখালী** নিয়ে তৈরি প্রথম playable browser-based 3D game prototype। এটি GTA 6-এর মতো সম্পূর্ণ realistic commercial game নয়। প্রথম version-এর শাহবাগ ম্যাপ বদলে এখানে **Gulshan 2, Banani Road 11, Mohakhali Bus Stand এবং Gulshan 1** নেওয়া হয়েছে।
 
+## ভার্সন ০.৭ — Car Snatching + Real Street Map
+
+- **Car Snatching:** Traffic-এর গাড়ির ৯ মিটারের মধ্যে গিয়ে F চাপবে। ২.২ সেকেন্ড গাড়ির কাছে দাঁড়িয়ে থাকলে গাড়িটি নিতে পারবে। দূরে গেলে cancel। Driver NPC পালাবে এবং ২ wanted stars বাড়বে। E দিয়ে খালি parked গাড়িতে ওঠা যাবে।
+- **Getaway mission:** Banani Vehicle Getaway mission-এ গাড়ি snatch করে wanted stars ০ করে সেই stolen car নিয়ে Gulshan 2-এ যেতে হবে। Reward ৳১,৯০০।
+- **Real 2D map:** মিনিম্যাপে OpenStreetMap-এর genuine geographic street tiles, GPS, police এবং mission icons load হবে। Network না থাকলে পুরোনো schematic view fallback।
+- **3D street labels:** Available OpenStreetMap data-র আসল রাস্তার নাম দিয়ে 3D sign তৈরি হবে। Placement approximate।
+- **Touch button:** নতুন F Hijack, progress bar ও total snatched counter।
+
+**নোট:** 2D রাস্তার map বাস্তব geographic তথ্যের ওপর ভিত্তি করে, কিন্তু 3D building façade, sign placement এবং scenery এখনও অনুমানভিত্তিক। এটি GTA 5-এর সম্পূর্ণ সংস্করণ নয়; live-browser end-to-end test এখনও নিশ্চিত হয়নি।
+
+Tests: node --test tests/*.mjs
 ## ভার্সন ০.৬ — GTA 5-স্টাইল Gameplay
 
 এটি একটি মৌলিক বাংলাদেশভিত্তিক browser open-world game prototype। GTA 5-এর সম্পূর্ণ গেম নয়; কয়েকটি গুরুত্বপূর্ণ interactive gameplay feature যোগ হয়েছে।
