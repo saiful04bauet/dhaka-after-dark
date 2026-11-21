@@ -1,69 +1,57 @@
-# DHAKA / AFTER DARK — playable 3D open-world pre-alpha
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.2)
 
-A playable desktop-browser **3D exploration / driving prototype** set around central **Dhaka, Bangladesh**, inspired by the *genre* of cinematic open-world action games. This is an original prototype, **not a GTA VI clone or a finished AAA title**.
+**Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
 
-## Quick start (Windows)
+## NEW in v0.2
 
-1. Extract the ZIP.
-2. Install Python 3 if you do not already have it.
-3. Double-click `START_WINDOWS.bat`.
-4. Open http://localhost:8000 in Chrome or Edge (it may open automatically).
-5. Wait for OpenStreetMap to load, then click **ENTER DHAKA**.
+- **Rigged textured adult male 3D character** with *Idle, Walk and Run* clips sourced from the public three.js Soldier.glb example, loaded by `src/human.js`. This is a more human-looking placeholder model, **not a photorealistic custom Metahuman**. Its source must be reachable at runtime; if unavailable, the earlier procedural figure is substituted and the HUD shows that fact.
+- **Three northern Dhaka areas**, one continuous road network (OSM service when available), larger 3D world and building density with tall office/residential towers.
+- **District markers and quick travel** between Gulshan 2, Banani Road 11, Mohakhali Bus Stand and Gulshan 1 to make testing convenient.
+- **Location-specific missions**, traffic (sedans, buses, CNGs), driving, GPS minimap, map overlay, rain/night mode, collisions and third-person camera.
 
-## Quick start (Mac/Linux)
+## Run locally
 
-Run `./start.sh` and visit http://localhost:8000.
+Launch a local static server from the repository root:
 
-You can alternatively serve the directory using VS Code Live Server or `npx serve`.
+```bash
+python -m http.server 8000
+```
 
-**Internet is required** to load the 3D Three.js engine and download up-to-date OpenStreetMap geography. Opening `index.html` directly from disk is not recommended. Public Overpass API services are rate-limited and may be unavailable at times.
+Open <http://localhost:8000> in a recent Chrome/Edge browser and click **ENTER DHAKA** when the city has loaded. This site is also deployable to Cloudflare Pages without a build step.
 
-## Controls
+Internet access and WebGL are required for the Three.js engine, OpenStreetMap data and downloaded animated character. The Overpass/3D asset hosts may sometimes be rate limited or unavailable. **HTML files must be served over HTTP(S), not opened directly by double click.**
 
-| Key | Action |
+### Controls
+
+| Input | Action |
 |---|---|
-| W / A / S / D | Walk / move or accelerate, brake & steer while driving |
-| Shift | Sprint on foot / faster vehicle speed |
-| E | Enter / exit parked sedan (get within 12 m) |
-| Space | Brake in vehicle |
-| Mouse drag on game view | Rotate third-person camera |
-| Q / F | Rotate camera with keyboard |
-| V | Switch to wide camera |
-| T | Switch dusk / night |
-| R | Toggle monsoon rain |
-| M | Show full city map |
-| Esc | Pause / resume |
+| WASD | Move / drive |
+| Shift | Sprint / accelerate |
+| E | Enter or exit nearby sedan |
+| Space | Brake |
+| Mouse drag / Q / F | Rotate camera |
+| V | Wide camera |
+| 1 / 2 / 3 / 4 | Jump to Gulshan 2 / Banani / Mohakhali / Gulshan 1 |
+| M | Full map |
+| T | Night mode |
+| R | Monsoon rain |
+| Esc | Pause |
 
-## What is implemented
+## Project structure
 
-- 3D scene with physically-based materials, shadows, atmospheric fog, facade textures, urban trees, road markings, lights, weather and time-of-day controls.
-- Third-person original human player (placeholder geometric character) with walking/running motion.
-- A drivable sedan with speed, steering, braking and entry/exit.
-- Moving background traffic: cars, buses, CNG auto-rickshaws.
-- GPS-based minimap, map overlay, district and coordinates HUD.
-- Checkpoint exploration missions and simple taka rewards.
-- **Real roads, park polygons, building footprints, water outlines** fetched from OpenStreetMap using Overpass (`out geom`). Geometry is projected using the game's local latitude/longitude center. Rendered 3D buildings use *estimated heights/materials*, so they are NOT accurate 3D reconstructions.
-- If Overpass is unavailable, a playable **SIMULATED FALLBACK MAP** is generated. This fallback is deliberately marked as *not accurate Dhaka geography*.
+- `index.html`: Main overlay, mission HUD and district selection
+- `src/main.js`: Three.js scene, geometry, OSM ingestion, vehicle/character controller, mission loop
+- `src/human.js`: Runtime GLB rigged character loader and animation blending
+- `src/style.css`: HUD and screen styling
+- `README_BN.md`: Bangla setup overview
 
-## Map coverage / fidelity
+## Cloudflare Pages
 
-- Current game zone: approximate **Shahbag, Ramna Park, University of Dhaka surroundings**, Dhaka.
-- Geographic bbox: south 23.733, west 90.393, north 23.746, east 90.409.
-- These are OSM-derived outlines where OSM data is returned; roads are not an official/navigation-grade model, and traffic, collision and landmarks are simplified.
-- Browser graphics are **NOT photorealistic AAA**: no scanned landmarks, cinematic humans, texture atlases, global illumination, advanced traffic AI, vehicle interiors, sound design or full Dhaka coverage yet.
+Connect the GitHub repository `saiful04bauet/dhaka-after-dark` and deploy `main` with **Framework preset: None** and **Build output directory: `.`**. Leave build command blank or use `exit 0` if it is required. This is a static client-side WebGL prototype.
 
-## For an actual high-fidelity PC game
+## Accuracy, credits and limitations
 
-Recommended next phase: Unreal Engine 5, World Partition, Nanite assets, Lumen lighting, MetaHuman-like *original licensed* character assets, dedicated vehicle physics, traffic/navmesh, recorded Bangladeshi street ambience, and photogrammetry of *legally obtained* authentic Dhaka landmarks. Import appropriately licensed OSM/other GIS data through an Unreal geospatial pipeline, check map topology and obtain permissions for source data and building imagery. Begin with one polished 1–2 km² vertical slice before expanding across the city.
-
-## Files
-
-- `index.html` — overlays, menu, HUD, map display
-- `src/style.css` — UI and art direction
-- `src/main.js` — renderer, map ingestion, 3D city, characters, traffic, missions, controls
-- `START_WINDOWS.bat` — one-click development server on Windows
-- `start.sh` — Mac/Linux server launcher
-
-## Credits & license
-
-Original source code provided for prototyping. Three.js: MIT license, loaded from jsDelivr at runtime. Map geometry provided by **© OpenStreetMap contributors**, distributed under the Open Database License (ODbL): https://www.openstreetmap.org/copyright. Respect attribution and relevant license conditions before publishing or distributing derived geographic datasets. Fictional shop names and placeholder vehicles/characters do not represent official assets from any existing game.
+- Anchors: Gulshan 2 Circle `23.7948921,90.4138705`, Banani Rd 11 ~`23.79075,90.40503`, Mohakhali Bus Stand `23.77794,90.39848`, Gulshan 1 Circle `23.78032,90.4168`.
+- The road/building shapes from live OSM are © OpenStreetMap contributors, licensed under the **ODbL**. See [OpenStreetMap copyright](https://www.openstreetmap.org/copyright). Other details (individual tower designs, façades, cars, shop signs, furniture) are generated game approximations; do not assume they exactly represent the street.
+- GLB example model: [three.js example models / Soldier.glb](https://threejs.org/examples/models/gltf/Soldier.glb), loaded from an external host with fallback. The GLB figure is an animated example soldier, not a customized Dhaka civilian model. Check upstream asset terms before commercial reuse.
+- The full Gulshan/Banani/Mohakhali districts are **not fully modeled**. This release provides a mechanically playable, geographically targeted browser prototype, not AAA graphics, voice acting, missions, combat, large-world streaming or production-ready physics.
