@@ -47,3 +47,13 @@
  #mission{bottom:157px;width:180px}
 }
 @media(max-width:590px){#navigationHUD{top:58px;left:auto;right:9px;transform:none;min-width:166px}#districtNav{top:128px;max-width:250px}#mission{bottom:185px}}
+
+/* v0.5: interactive OSM street tiles, with an offline schematic fallback */
+#mapToolbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:0 0 10px;color:#d7dee4;font-size:10px;letter-spacing:.09em}
+#mapToolbar button{background:#162d3b;color:#ffcd8f;border:1px solid #d9ac6b77;border-radius:5px;cursor:pointer;padding:8px 12px;font-size:11px;font-weight:700}
+#leafletMap{display:none;width:100%;height:min(64vh,580px);min-height:320px;border:1px solid #ffffff45;background:#1d2e38;z-index:1}
+#bigMap.leaflet-ready #leafletMap{display:block}
+#bigMap.leaflet-ready #largeMap{display:none}
+#bigMap .leaflet-container{font:13px Arial,sans-serif}
+#bigMap .leaflet-control-attribution{font-size:10px}
+@media(max-width:700px){#bigMap{padding:12px}#leafletMap{min-height:270px;height:58vh}#mapToolbar{font-size:9px;flex-wrap:wrap}.panel-footer{gap:10px;flex-wrap:wrap}}
