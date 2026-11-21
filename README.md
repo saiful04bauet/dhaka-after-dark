@@ -1,6 +1,21 @@
-# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.5)
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.6)
 
 **Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
+
+## NEW in v0.6 — STREET LIFE gameplay (GTA-style mechanics, not GTA 5 itself)
+
+The existing drivable North Dhaka browser prototype now adds several **playable original open-world systems**:
+
+- **Story missions (N / J):** Five repeatable city tasks: Banani courier job, Gulshan avenue drive, lose-the-police escape mission, express return delivery and Mohakhali exploration. Each includes a destination, timer, win/lose conditions, and Taka rewards. The mission board shows the upcoming job. Restart/next job using **N**. Fast travel is blocked during a live mission or pursuit.
+- **Five-star wanted & police chase:** Commandeering moving traffic that has stopped or hitting traffic vehicles creates wanted stars. Police sedans pursue the player and attempt an arrest at low speed/short distance. Escape far enough for long enough to lose wanted stars. Busted players are returned to Banani, lose up to ৳250 and fail their current mission.
+- **Health, armor and stamina:** HUD shows health, armor, stamina, vehicle durability and cash. Sprint drains stamina; walking/resting replenishes it. Impacts damage the vehicle and sometimes the player; a completely destroyed engine stops working.
+- **Garage (G / U):** Find the **violet BANANI GARAGE** (a fictional in-game service marker, not a real mapped business) and park the car. **G** repairs damage for ৳300. **U** upgrades engine speed up to three levels (৳1,200, ৳2,000 and ৳2,800).
+- **Clinic (H):** Approach the **green MOHAKHALI CLINIC** (fictional service marker) on foot to restore health and some armor for ৳150.
+- **Additional player interactions:** Space = jump on foot / handbrake in car, C = crouch, X = talk to a nearby pedestrian (short scripted dialogue), B = synthesized original car horn. The touch UI also adds **JUMP / BRAKE** and **TALK / USE** buttons.
+- **Persistent local progress:** Money, career mission step, completed jobs, garage upgrade, player health and position are saved in **this browser's localStorage**. **K** saves manually; autosave also runs about every 15 seconds. Data is not synchronized to other browsers, accounts or devices.
+- **New files:** `src/gameplay.js` (mechanics), `src/urban_runtime.js` (police AI/markers), `tests/streetlife.mjs` (regression tests). Run `node --test tests/*.mjs` using Node.js 20+.
+
+**Limits:** This is **not the full functionality of GTA 5**. There is no extensive cinematic story, licensed Rockstar content, realistic shooting/combat, advanced NPC intelligence, multiplayer, traffic-law simulation, ragdoll physics or production-grade car handling. The police chase is simplified, and on-foot conversations are brief pre-written lines. Buildings, cars and road objects remain a prototype. Browser rendering of the updated build has not been fully end-to-end validated in this environment.
 
 ## NEW in v0.5 — corrected controls and real-world map
 
@@ -63,7 +78,16 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 | On-screen directional arrows | Hold to walk or steer (desktop/touch) |
 | Shift | Sprint / accelerate |
 | E or ENTER / EXIT on screen | Board a parked or stopped car, or exit once stopped |
-| Space | Brake |
+| Space | Jump on foot / handbrake in car |
+| C | Crouch / stand |
+| X | Talk to nearby pedestrian |
+| N | Start next / retry mission |
+| J | Open/close job board |
+| G | Repair vehicle at Banani garage (৳300) |
+| U | Upgrade engine at Banani garage |
+| H | Heal at Mohakhali clinic (৳150) |
+| K | Save current progress in this browser |
+| B | Car horn |
 | Mouse drag / Q / F | Rotate camera |
 | V | Wide camera |
 | 1 / 2 / 3 / 4 | Jump to Gulshan 2 / Banani / Mohakhali / Gulshan 1 |
@@ -76,6 +100,9 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 
 - `index.html`: Main overlay, mission HUD and district selection
 - `src/main.js`: Three.js scene, geometry, OSM ingestion, vehicle/character controller, mission loop
+- `src/gameplay.js`: Timed tasks, wanted/health/stamina/damage, local save and economy
+- `src/urban_runtime.js`: Police pursuit, city service markers and minimap icons
+- `tests/streetlife.mjs`: Gameplay economy and mission regression tests
 - `src/map_navigation.js`: Connected street-route graph and live Leaflet map overlay
 - `src/control_math.js`: Tested camera-relative walking, steering and compass orientation
 - `tests/navigation.mjs`: Control and GPS navigation regression cases
