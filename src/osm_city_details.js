@@ -38,3 +38,35 @@ export function addNamedDhakaRoadSigns(T,scene,roads){
  }
  return signs;
 }
+
+/* Prefer OSM building footprints in all four playable zones instead of
+ * blindly taking the first 1,350 ways returned by the remote API.
+ * This returns actual provided footprints only; it never invents geometry. */
+export function selectBalancedBuildings(buildings,districts,geo,limit=1700){
+ const anchors=districts.map(d=>geo(d.lat,d.lon));
+ if(!anchors.length)return (buildings||[]).slice(0,limit);
+ const buckets=anchors.map(()=>[]);
+ for(const b of buildings||[]){
+  if(!b?.points||b.points.length<4)continue;
+  const n=b.points.length-1;let sumX=0,sumZ=0;
+  for(let i=0;i<n;i++){sumX+=b.points[i].x;sumZ+=b.points[i].z;}
+  const center={x:sumX/n,z:sumZ/n};
+  let best=0,min=Infinity;
+  for(let i=0;i<anchors.length;i++){
+   const d=Math.hypot(center.x-anchors[i].x,center.z-anchors[i].z);
+   if(d<min){min=d;best=i;}
+  }
+  buckets[best].push({b,distance:min});
+ }
+ for(const bucket of buckets)bucket.sort((a,b)=>a.distance-b.distance);
+ const result=[],offsets=buckets.map(()=>0);
+ while(result.length<limit){
+  let madeProgress=false;
+  for(let i=0;i<buckets.length&&result.length<limit;i++){
+   const j=offsets[i];
+   if(j<buckets[i].length){result.push(buckets[i][j].b);offsets[i]++;madeProgress=true;}
+  }
+  if(!madeProgress)break;
+ }
+ return result;
+}
