@@ -886,6 +886,7 @@ function bindUI(){
  $('touchAction')?.addEventListener('click',()=>{if(state.playing&&!state.paused)enterExitVehicle();});
  $('touchJump')?.addEventListener('pointerdown',event=>{
   event.preventDefault();
+  event.currentTarget.setPointerCapture?.(event.pointerId);
   if(!state.playing||state.paused||jobsOpen||state.largeMap)return;
   if(state.inCar){keys[' ']=true;return;}
   if(jumpHeight===0)jumpVelocity=7.5;
