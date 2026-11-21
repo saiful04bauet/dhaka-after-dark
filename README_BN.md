@@ -1,35 +1,30 @@
-# DHAKA / AFTER DARK — কীভাবে খেলবেন
+# DHAKA / AFTER DARK — ভার্সন ০.২
 
-এটি ঢাকাভিত্তিক একটি **playable 3D game prototype**। এটা সম্পূর্ণ GTA 6 নয়। বাস্তবসম্মত 3D game-এর ভিত্তি তৈরি হয়েছে; সম্পূর্ণ photorealistic model, বাস্তব ল্যান্ডমার্কের photogrammetry, advanced AI, combat, storyline, full city map ইত্যাদি এখনো তৈরি হয়নি।
+ঢাকার **গুলশান, বনানী ও মহাখালী** নিয়ে তৈরি প্রথম playable browser-based 3D game prototype। এটি GTA 6-এর মতো সম্পূর্ণ realistic commercial game নয়। প্রথম version-এর শাহবাগ ম্যাপ বদলে এখানে **Gulshan 2, Banani Road 11, Mohakhali Bus Stand এবং Gulshan 1** নেওয়া হয়েছে।
 
-## Windows-এ চালানোর নিয়ম
+## নতুন যা যোগ হয়েছে
 
-1. ZIP ফাইলটি Extract করুন।
-2. কম্পিউটারে Python 3 থাকলে `START_WINDOWS.bat`-এ ডাবল-ক্লিক করুন।
-3. Chrome বা Edge ব্রাউজারে `http://localhost:8000` খুলুন।
-4. OpenStreetMap data load হলে **ENTER DHAKA** চাপুন।
+- আগের block-character-এর বদলে **animated, textured, human-proportioned rigged 3D male model** (Three.js example Soldier model)। Idle, Walk, Run animation আছে। **এটি এখনো professional photorealistic civilian model নয়।** অনলাইনে model না পেলে আগের placeholder দেখা যাবে এবং ডান পাশে সেই status দেখাবে।
+- OpenStreetMap service কাজ করলে এই এলাকার **আসল road geometry ও কিছু building outlines** load হয়। Service ব্যর্থ হলে **APPROXIMATE** লেখা simulated fallback চালু হয়। Fallback-কে বাস্তব ম্যাপ হিসেবে উপস্থাপন করা হয়নি।
+- আরও বড় 3D world, traffic, গাড়ি চালানো, checkpoint missions, lighting, rain/night এবং minimap।
+- **1 = Gulshan 2, 2 = Banani, 3 = Mohakhali, 4 = Gulshan 1**: district quick travel।
 
-> ইন্টারনেট লাগবে, কারণ Three.js graphics engine এবং OpenStreetMap map data অনলাইন থেকে লোড হয়। Overpass সার্ভার কাজ না করলে গেমে একটি **SIMULATED FALLBACK MAP** দেখা যাবে—সেটি আসল ঢাকার রাস্তার ম্যাপ নয়। সার্ভার সচল হলে পুনরায় লোড করুন।
+## কীভাবে চালাবে
 
-## কন্ট্রোল
+ZIP extract করে folder-এর ভিতরে terminal থেকে:
 
-- `W A S D` — চলাফেরা / গাড়ি চালানো ও স্টিয়ারিং
-- `Shift` — দৌড় / গাড়ির বেশি স্পিড
-- `E` — গাড়ির কাছে গিয়ে গাড়িতে ওঠা / নামা
-- `Space` — গাড়ির ব্রেক
-- মাউস দিয়ে drag — ক্যামেরা ঘোরানো
-- `V` — ক্যামেরা জুম আউট/ইন
-- `T` — সন্ধ্যা ও রাত পরিবর্তন
-- `R` — বৃষ্টি অন/অফ
-- `M` — বড় ম্যাপ
-- `Esc` — pause
+```bash
+python -m http.server 8000
+```
 
-## কোন জায়গা
+তারপর Chrome/Edge-এ `http://localhost:8000` খুলে **ENTER DHAKA** চাপবে। Windows-এ আগের `START_WINDOWS.bat`-ও ব্যবহার করা যাবে। WebGL ও ইন্টারনেট দরকার।
 
-প্রথম এলাকার কেন্দ্র **Shahbag–Ramna–Dhaka University**, ঢাকা। OpenStreetMap থেকে ঐ এলাকার আসল রাস্তা ও building footprints নেওয়া হয়। তবে বাড়ির রং, 3D উচ্চতা, গাড়ি, মানুষ, রাস্তার দোকান ইত্যাদি আনুমানিক/placeholder।
+## GitHub/Cloudflare
 
-## পরের বড় আপগ্রেড
+GitHub: https://github.com/saiful04bauet/dhaka-after-dark
 
-**Unreal Engine 5** দিয়ে photorealistic version তৈরি করলে Lumen, Nanite, scanned original Dhaka landmarks, realistic Bangladeshi characters, licensed vehicle models, improved traffic AI, physics, sounds এবং missions যোগ করতে হবে। পুরো ঢাকা এবং GTA 6-এর মতো production quality একটি বড় team-scale project।
+Cloudflare Pages-এ repo connect করে branch `main`, Framework `None`, build command `exit 0` এবং output directory `.` দেবে। Already connected হলে main branch update হলেই Cloudflare নতুন deployment trigger করতে পারে।
 
-Map data: © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+**নোট:** GTA 6-মানের graphics-এর জন্য custom 3D scanned/rigged human, accurate Dhaka building assets, realistic car models, and Unreal Engine 5-style content pipeline লাগবে। এই browser prototype-এ সেই AAA assets নেই।
+
+Map data © OpenStreetMap contributors (ODbL)। 3D example soldier asset is retrieved from the three.js examples; commercial use requires reviewing upstream license/rights.
