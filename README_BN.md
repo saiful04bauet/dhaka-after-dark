@@ -1,6 +1,14 @@
-# DHAKA / AFTER DARK — ভার্সন ০.৪
+# DHAKA / AFTER DARK — ভার্সন ০.৫
 
 ঢাকার **গুলশান, বনানী ও মহাখালী** নিয়ে তৈরি প্রথম playable browser-based 3D game prototype। এটি GTA 6-এর মতো সম্পূর্ণ realistic commercial game নয়। প্রথম version-এর শাহবাগ ম্যাপ বদলে এখানে **Gulshan 2, Banani Road 11, Mohakhali Bus Stand এবং Gulshan 1** নেওয়া হয়েছে।
+
+## ভার্সন ০.৫ — Arrow ও Map Fix
+
+- **Left/Right ঠিক:** Keyboard ও স্ক্রিনের arrow-এ এখন যেদিকে চাপবে চরিত্র ও গাড়ি সেদিকেই ঘুরবে। Minimap-এর player-facing arrow ও GPS compass-ও সংশোধন করা হয়েছে।
+- **সত্যিকারের map tiles:** **M** চাপলে Leaflet-এ OpenStreetMap-এর interactive map দেখা যাবে; zoom, pan, live player coordinate marker, mission checkpoint ও district marker থাকবে। **RECENTER** দিয়ে প্লেয়ারের অবস্থানে map ফিরবে।
+- **রাস্তার ওপর GPS path:** Real OSM connected road data পাওয়া গেলে নীল route line রাস্তা ধরে যাবে ও আনুমানিক road distance দেখাবে। Service unavailable বা রাস্তা disconnected হলে amber dashed line-কে স্পষ্টভাবে **straight-line bearing** হিসেবে দেখানো হবে।
+- **বিকল্প map:** Leaflet বা external map server কাজ না করলে পুরোনো schematic fallback থাকবে, ভুল করে সেটাকে বাস্তব রাস্তার map বলা হবে না।
+- **Testing:** `node --test tests/navigation.mjs` দিয়ে control এবং road-routing regression check করা যাবে।
 
 ## নতুন যা যোগ হয়েছে
 
