@@ -537,8 +537,16 @@ function toggleMap(){
 function pause(v){state.paused=v;$('pause').classList.toggle('hidden',!v);if(v&&document.pointerLockElement)document.exitPointerLock()}
 function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys[k]=true;
  if(held[k])return;held[k]=true;
- if(k==='escape'){if(state.largeMap){toggleMap();return}if(state.playing)pause(!state.paused);return}
+ if(k==='escape'){if(jobsOpen){closeJobs();return}if(state.largeMap){toggleMap();return}if(state.playing)pause(!state.paused);return}
  if(!state.playing||state.paused)return;
+ if(k==='j'){toggleJobs();return;}
+ if(jobsOpen){if(k==='n')startNextMission();return;}
+ if(k==='n'){startNextMission();return;}
+ if(k==='g'){garageAction(false);return;}
+ if(k==='u'){garageAction(true);return;}
+ if(k==='h'){clinicAction();return;}
+ if(k==='k'){toast(game.save(player)?'PROGRESS SAVED ON THIS BROWSER':'BROWSER STORAGE UNAVAILABLE');return;}
+ if(k==='b'){if(state.inCar)horn();return;}
  if(k==='e')enterExitVehicle();
  if(k==='t'){state.night=!state.night;toast(state.night?'NIGHT MODE · DHAKA AFTER DARK':'GOLDEN HOUR · EVENING')}
  if(k==='r'){state.rain=!state.rain;rainMesh.visible=state.rain;$('weatherText').textContent=state.rain?'MONSOON RAIN':'CLEAR';toast(state.rain?'MONSOON WEATHER ENABLED':'SKIES CLEARED')}
@@ -852,6 +860,10 @@ function bindUI(){
  $('play').onclick=()=>{if(state.loading){toast('Map is still loading');return}state.playing=true;$('intro').classList.add('hidden');if(!game.missionActive)game.startMission();refreshGameplayHUD();toast(state.realMap?'STREET LIFE STARTED · REAL NORTH DHAKA':'STREET LIFE STARTED · APPROXIMATE MAP')};
  $('resume').onclick=()=>pause(false);$('restart').onclick=()=>location.reload();$('retry').onclick=()=>location.reload();$('closeMap').onclick=toggleMap;
  $('recenterMap')?.addEventListener('click',()=>leafletViewer?.recenter(player));
+ $('openJobs')?.addEventListener('click',toggleJobs);
+ $('closeJobs')?.addEventListener('click',closeJobs);
+ $('startJob')?.addEventListener('click',startNextMission);
+ window.addEventListener('beforeunload',()=>{if(player&&state.playing)game.save(player)});
  document.addEventListener('keydown',handleKeyDown);document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;held[e.key.toLowerCase()]=false});
  document.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;for(const k in held)held[k]=false});
  $('world').addEventListener('mousedown',e=>{if(e.button===0)mouseDown=true;mousePrevX=e.clientX});
