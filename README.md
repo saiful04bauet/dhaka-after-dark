@@ -1,4 +1,4 @@
-# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.3)
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.4)
 
 **Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
 
@@ -12,6 +12,28 @@
 - **Same North Dhaka gameplay zone:** Gulshan 1 and 2, Banani Road 11, Mohakhali Bus Stand (OSM source if available; otherwise clearly labeled approximate layout).
 
 This remains a browser pre-alpha, **not a GTA VI-like photorealistic finished production**. Cars, buildings, vegetation, NPCs, animations and physics are still relatively simple geometry.
+
+## NEW in v0.4 — higher-detail graphics (November 21, 2026)
+
+**Buildings:** Instanced glass windows, night-lit office/residential facade panels, metallic trims and grounded architectural variation on nearby OSM-footprint buildings. These additional facade features are procedurally generated, **not measured/photogrammetry of real buildings**.
+
+**Vehicles:** Real 3D GLB vehicle meshes are loaded at runtime in place of placeholder boxes: an executive sedan, touring SUV, single-deck city bus and green-style three-wheeled auto-rickshaw. Driving, speed, board/exit and traffic logic are unchanged. If any model CDN is unreachable, only that model keeps the procedural fallback. Existing traffic can continue moving.
+
+**Environment:** Generated alpha-cutout broadleaf trees, rooftop/roadside details, shelter canopies, bus benches, utility poles and overhead wires, plus an optional HDR reflection/illumination environment for wet roads, car paint and glass. Real-world layout remains restricted to selected OpenStreetMap roads/building footprints; street props and original façades are approximations.
+
+**Performance:** Nearby building details use GPU InstancedMesh batching, and GLB wheel animations are capped to 20 vehicles. It is still a **Three.js browser prototype**, not a fully realistic AAA game/Unreal Engine 5 build. External vehicle model & HDR downloads require an internet connection.
+
+### External asset provenance (all verified pages are CC0)
+
+| Scene asset | Runtime URL | Original CC0 asset page |
+|---|---|---|
+| Executive sedan | https://cdn.3dassets.dev/assets/18684/v1/model.glb | https://3dassets.dev/assets/transport-collection-hd-executive-sedan-cfa7dfcf |
+| Touring SUV | https://cdn.3dassets.dev/assets/18686/v1/model.glb | https://3dassets.dev/assets/transport-collection-hd-touring-suv-f8566c14 |
+| Single-decker city bus | https://cdn.3dassets.dev/assets/34194/v1/model.glb | https://3dassets.dev/assets/bus-station-and-city-transit-city-bus-single-decker-ddf9a355 |
+| Auto-rickshaw | https://cdn.3dassets.dev/assets/36560/v1/model.glb | https://3dassets.dev/assets/indian-bazaar-street-and-temple-auto-rickshaw-51b91c47 |
+| Urban HDR reflections | https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/urban_street_01_1k.hdr | https://polyhaven.com/a/urban_street_01 |
+
+Models are streamed from provider CDNs and **not stored as GLB binaries in this repository**. The source pages identify these vehicles and Poly Haven HDRI as CC0 1.0; retain their original licensing information if redistributing binaries. Character model licensing remains separately credited (vinish.dev CC BY 4.0).
 
 ## Run locally
 
