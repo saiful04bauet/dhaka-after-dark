@@ -1,13 +1,17 @@
-# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.2)
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.3)
 
 **Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
 
-## NEW in v0.2
+## NEW in v0.3
 
-- **Rigged textured adult male 3D character** with *Idle, Walk and Run* clips sourced from the public three.js Soldier.glb example, loaded by `src/human.js`. This is a more human-looking placeholder model, **not a photorealistic custom Metahuman**. Its source must be reachable at runtime; if unavailable, the earlier procedural figure is substituted and the HUD shows that fact.
-- **Three northern Dhaka areas**, one continuous road network (OSM service when available), larger 3D world and building density with tall office/residential towers.
-- **District markers and quick travel** between Gulshan 2, Banani Road 11, Mohakhali Bus Stand and Gulshan 1 to make testing convenient.
-- **Location-specific missions**, traffic (sedans, buses, CNGs), driving, GPS minimap, map overlay, rain/night mode, collisions and third-person camera.
+- **Civilian player:** Prioritizes a textured, animated male civilian ("Casual Man" by vinish.dev, CC BY 4.0) with Idle / Walk / Run clips. If that host fails, the Three.js Soldier sample is a backup; a visibly labeled procedural character is the last resort.
+- **Movement:** WASD *and four arrow keys* for walking and driving, plus functional hold-to-move on-screen arrows.
+- **Any stopped/parked car:** Press **E** near the closest available vehicle to enter it. The car may be a sedan, CNG, or a bus. Moving traffic cannot be boarded; AI vehicles make periodic stops. Press E after slowing almost to a stop to get out. Enter/exit animations and physical door interactions are not implemented yet.
+- **GPS destination direction:** Rotating compass arrow, meters to checkpoint, minimap, district navigation and dashed **straight-line bearing**; this is not actual turn-by-turn road routing.
+- **More grounded 3D visuals:** Atmospheric sky, revised cinematic lighting, shadows following the player, weather-dependent wet-road materials, zebra crossings, commercial glass fronts, shop signs, street lighting and extra vehicle details.
+- **Same North Dhaka gameplay zone:** Gulshan 1 and 2, Banani Road 11, Mohakhali Bus Stand (OSM source if available; otherwise clearly labeled approximate layout).
+
+This remains a browser pre-alpha, **not a GTA VI-like photorealistic finished production**. Cars, buildings, vegetation, NPCs, animations and physics are still relatively simple geometry.
 
 ## Run locally
 
@@ -25,9 +29,10 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 
 | Input | Action |
 |---|---|
-| WASD | Move / drive |
+| WASD or arrow keys (↑ ↓ ← →) | Walk / drive / reverse / steer |
+| On-screen directional arrows | Hold to walk or steer (desktop/touch) |
 | Shift | Sprint / accelerate |
-| E | Enter or exit nearby sedan |
+| E or ENTER / EXIT on screen | Board a parked or stopped car, or exit once stopped |
 | Space | Brake |
 | Mouse drag / Q / F | Rotate camera |
 | V | Wide camera |
@@ -53,5 +58,5 @@ Connect the GitHub repository `saiful04bauet/dhaka-after-dark` and deploy `main`
 
 - Anchors: Gulshan 2 Circle `23.7948921,90.4138705`, Banani Rd 11 ~`23.79075,90.40503`, Mohakhali Bus Stand `23.77794,90.39848`, Gulshan 1 Circle `23.78032,90.4168`.
 - The road/building shapes from live OSM are © OpenStreetMap contributors, licensed under the **ODbL**. See [OpenStreetMap copyright](https://www.openstreetmap.org/copyright). Other details (individual tower designs, façades, cars, shop signs, furniture) are generated game approximations; do not assume they exactly represent the street.
-- GLB example model: [three.js example models / Soldier.glb](https://threejs.org/examples/models/gltf/Soldier.glb), loaded from an external host with fallback. The GLB figure is an animated example soldier, not a customized Dhaka civilian model. Check upstream asset terms before commercial reuse.
+- Primary character: **"Casual Man" by vinish.dev**, <https://vinish.dev/free-3d-models/people>, **CC BY 4.0**. A second business civilian from the same site is a fallback. The older [Three.js Soldier.glb sample](https://threejs.org/examples/models/gltf/Soldier.glb) remains a secondary compatibility fallback. Character model downloads are external, not bundled with the repo. The civilian is an openly licensed generic 3D model, not a unique high-resolution MetaHuman.
 - The full Gulshan/Banani/Mohakhali districts are **not fully modeled**. This release provides a mechanically playable, geographically targeted browser prototype, not AAA graphics, voice acting, missions, combat, large-world streaming or production-ready physics.
