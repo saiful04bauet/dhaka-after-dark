@@ -96,3 +96,11 @@
 .service-help{margin-top:15px;border-top:1px solid #ffffff22;padding-top:13px;font:11px/1.7 'DM Sans',sans-serif;color:#b8c6ce}
 @media(max-width:900px){#playerStats{left:12px;top:213px;width:173px;padding:8px 9px}#wantedStars{font-size:14px}.statline{grid-template-columns:41px 1fr 20px;gap:3px;margin:3px 0}.statline span{font-size:7px}#walletCash{font-size:15px}#mission{bottom:152px}#jobBoard{padding:14px}.jobrow{grid-template-columns:25px 1fr 65px;gap:7px}.jobrow strong{font-size:15px}.jobrow small{font-size:9px}.jobrow .reward{font-size:16px}}
 @media(max-width:590px){#playerStats{top:225px;left:9px;width:154px;padding:7px 7px}#playerStats .stats-top strong{font-size:12px}#mission{bottom:180px;right:8px;width:153px}.job-footer{flex-wrap:wrap}.job-head h2{font-size:29px}#jobBoard{max-height:85vh}}
+
+/* Additional tactile actions for tablet/phone/browser players. */
+#touchJump,#touchInteract{height:58px;min-width:65px;cursor:pointer;background:#0a1b2edb;color:#eef9fc;border:1px solid #ffffff64;backdrop-filter:blur(5px);padding:5px;touch-action:none}
+#touchJump b,#touchInteract b{display:block;font:800 24px 'Barlow Condensed',sans-serif;color:#e6c38a}
+#touchJump small,#touchInteract small{display:block;font:700 8px 'DM Sans',sans-serif;letter-spacing:.035em}
+#touchJump:active,#touchInteract:active{background:#28647c}
+@media(max-width:900px){#touchJump,#touchInteract{height:46px;min-width:51px;padding:3px}#touchJump b,#touchInteract b{font-size:19px}#touchJump small,#touchInteract small{font-size:7px}}
+@media(max-width:390px){#touchControls{left:4px;gap:3px}.dpad{grid-template:repeat(3,27px)/repeat(3,27px)}#touchAction{width:57px}#touchJump,#touchInteract{min-width:47px}}
