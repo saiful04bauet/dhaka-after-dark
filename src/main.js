@@ -1,5 +1,5 @@
 /* Dhaka / After Dark — original gameplay prototype. Runtime geodata: © OpenStreetMap contributors (ODbL). */
-import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails} from './environment_hd.js';
+import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails,loadReflectionEnvironment} from './environment_hd.js';
 import {installDetailedVehicles} from './vehicles_hd.js';
 const $ = id => document.getElementById(id);
 let THREE;
@@ -494,8 +494,14 @@ async function setupWorld(){
   const street=placeDhakaStreetDetails(T,scene,DISTRICTS,geo,findNearestRoad);
   console.info('Improved building facades and Dhaka street details',stats,street);
  }catch(err){console.warn('Extra city detail skipped: original buildings still available',err);}
- // HD model downloads never block entry, driving, missions or map exploration.
+ // External assets never block movement, entering the city, or map navigation.
  void loadDetailedCars();
+ void loadReflectionEnvironment(T,scene,renderer).then(()=>{
+  const node=$('environmentStatus');if(node)node.textContent='URBAN HDR REFLECTIONS ACTIVE';
+ }).catch(error=>{
+  console.warn('Urban HDR map unavailable; built-in lighting remains active',error);
+  const node=$('environmentStatus');if(node)node.textContent='BUILT-IN LIGHTING · HDR OFFLINE';
+ });
  // Start player-model loading immediately, without blocking city navigation.
  void loadRealHuman();
  state.loading=false;$('district').textContent=state.realMap?'BANANI / GULSHAN / MOHAKHALI':'BANANI / GULSHAN / MOHAKHALI · APPROXIMATE';
