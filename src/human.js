@@ -1,25 +1,26 @@
-/* Animated human character for the Dhaka After Dark prototype.
-   Soldier.glb is a textured, rigged, human-proportioned reference model from the
-   three.js example library, with Idle, Walk and Run clips.
-   It is NOT a photorealistic GTA-quality character. The basic procedural player
-   remains only as an explicit offline/model-loading fallback.
+/* Animated civilian — "Casual Man" by vinish.dev (CC BY 4.0).
+   https://vinish.dev/free-3d-models/people — imported as an external GLB.
+   Fallback is the Three.js Soldier example, then a procedural character.
+   All characters and locations are independent of GTA intellectual property.
  */
 const THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.187.0';
 const SOURCES = [
-  'https://threejs.org/examples/models/gltf/Soldier.glb',
-  'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Soldier.glb'
+  {url:'https://models.vinish.dev/people/casual-man.glb',title:'CASUAL CIVILIAN · CC BY 4.0',turn:0},
+  {url:'https://models.vinish.dev/people/business-man.glb',title:'BUSINESS CIVILIAN · CC BY 4.0',turn:0},
+  {url:'https://threejs.org/examples/models/gltf/Soldier.glb',title:'SOLDIER EXAMPLE FALLBACK',turn:Math.PI},
+  {url:'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Soldier.glb',title:'SOLDIER EXAMPLE FALLBACK',turn:Math.PI}
 ];
 export async function makeAnimatedHuman(THREE) {
   const { GLTFLoader } = await import(`${THREE_CDN}/examples/jsm/loaders/GLTFLoader.js`);
   const loader = new GLTFLoader();
-  let gltf, lastError;
-  for (const url of SOURCES) {
+  let gltf, lastError, selected;
+  for (const source of SOURCES) {
     try {
       gltf = await Promise.race([
-        loader.loadAsync(url),
+        loader.loadAsync(source.url),
         new Promise((_, reject) => setTimeout(() => reject(new Error('3D model load timeout')), 12000))
       ]);
-      break;
+      selected=source;break;
     } catch (e) { lastError = e; }
   }
   if (!gltf) throw lastError || Error('Unable to load the rigged human model');
@@ -31,8 +32,7 @@ export async function makeAnimatedHuman(THREE) {
   model.updateMatrixWorld(true);
   const corrected = new THREE.Box3().setFromObject(model);
   model.position.y -= corrected.min.y;
-  // The bundled animation model faces +Z after this turn.
-  model.rotation.y = Math.PI;
+  model.rotation.y = selected.turn;
   model.traverse(obj => {
     if (obj.isMesh || obj.isSkinnedMesh) {
       obj.castShadow = true;
@@ -58,6 +58,8 @@ export async function makeAnimatedHuman(THREE) {
   actions[current].play();
   return {
     model,
+    label:selected.title,
+    sourceUrl:selected.url,
     update(dt, moving, sprinting) {
       const next = moving ? (sprinting ? 'run' : 'walk') : 'idle';
       if (next !== current) {
