@@ -698,13 +698,16 @@ function drawMap(ctx,w,h,local){
  for(const r of geometryMap.roads){ctx.beginPath();for(let i=0;i<r.points.length;i++){let [x,y]=project(r.points[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='#4d606b';ctx.lineWidth=Math.max(1,r.width*scale);ctx.stroke();}
  if(!local){ctx.fillStyle='#25343a';for(let i=0;i<geometryMap.buildings.length;i+=1){let b=geometryMap.buildings[i];ctx.beginPath();b.points.forEach((p,j)=>{let [x,y]=project(p);j?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.fill()}}
  for(const d of DISTRICTS){const pp=geo(d.lat,d.lon),[dx,dy]=project(pp);ctx.fillStyle='#eac285';ctx.beginPath();ctx.arc(dx,dy,3.8,0,Math.PI*2);ctx.fill();if(!local){ctx.fillStyle='#f5f6f7';ctx.font='bold 12px sans-serif';ctx.fillText(d.name,dx+9,dy-7)}}
- // Navigation line is a direct bearing, not a turn-by-turn routed street path.
- const [px0,py0]=project({x:player.x,z:player.z}),[tx,ty]=project(missionTarget);
- ctx.save();ctx.beginPath();ctx.setLineDash(local?[7,5]:[12,8]);ctx.strokeStyle='#70c7fe';ctx.lineWidth=local?2:3;ctx.moveTo(px0,py0);ctx.lineTo(tx,ty);ctx.stroke();ctx.restore();
+ // Solid blue shows a navigable route along connected OSM roads; the dashed
+ // amber line is a bearing-only fallback, never misrepresented as a route.
+ const routePoints=routeInfo?.roadBased?routeInfo.points:[{x:player.x,z:player.z},missionTarget];
+ ctx.save();ctx.beginPath();ctx.setLineDash(routeInfo?.roadBased?[]:(local?[7,5]:[12,8]));
+ ctx.strokeStyle=routeInfo?.roadBased?'#56b6fa':'#eab266';ctx.lineWidth=local?3:4;
+ routePoints.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.restore();
  const [mx,my]=project(missionTarget);ctx.beginPath();ctx.fillStyle='#eab266';ctx.arc(mx,my,local?5:8,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.strokeStyle='#eab266';ctx.lineWidth=1;ctx.arc(mx,my,local?12:16,0,Math.PI*2);ctx.stroke();
- const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(-player.yaw);
+ const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(Math.PI-player.yaw);
  ctx.fillStyle='#91c9ed';ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(6,9);ctx.lineTo(0,5);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore();
- if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?'Real OSM map geometry':'SIMULATED FALLBACK MAP',25,53);}
+ if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?(routeInfo?'OSM CONNECTED STREET ROUTE':'OSM STREETS · BEARING ONLY'):'SIMULATED FALLBACK · BEARING ONLY',25,53);}
  ctx.restore();
 }
 let mapTick=0;
