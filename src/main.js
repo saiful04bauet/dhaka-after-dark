@@ -10,9 +10,18 @@ try {
   throw err;
 }
 const T=THREE;
-const CENTER={lat:23.7395,lon:90.4005};
-const BBOX=[23.733,90.393,23.746,90.409];
-const CITY_RADIUS=1100;
+// The first playable area spans Gulshan, Banani and Mohakhali; geolocations
+// denote exploration anchors, not detailed 3D reconstructions of landmarks.
+const CENTER={lat:23.7870,lon:90.4070};
+const BBOX=[23.7738,90.3880,23.8007,90.4265];
+const CITY_RADIUS=2800;
+const DISTRICTS=[
+ {id:'gulshan', name:'GULSHAN 2 CIRCLE', lat:23.7948921,lon:90.4138705, detail:'GULSHAN AVENUE · 3D EXPLORATION'},
+ {id:'banani', name:'BANANI ROAD 11',lat:23.79075,lon:90.40503,detail:'BANANI · COMMERCIAL STREETS'},
+ {id:'mohakhali', name:'MOHAKHALI BUS STAND',lat:23.77794,lon:90.39848,detail:'MOHAKHALI · BUS TERMINAL ZONE'},
+ {id:'gulshan1', name:'GULSHAN 1 CIRCLE',lat:23.78032,lon:90.4168,detail:'GULSHAN 1 · CITY JUNCTION'}
+];
+const MISSION_ORDER=['mohakhali','gulshan1','gulshan','banani'];
 const M_PER_DEG_LAT=111320, M_PER_DEG_LON=111320*Math.cos(CENTER.lat*Math.PI/180);
 const state={playing:false,paused:false,inCar:false,night:false,rain:false,wideCamera:false,largeMap:false,cash:0,missionIndex:0,time:17.67,loading:true,realMap:false};
 const keys={};const held={};
@@ -23,6 +32,8 @@ let cityObjects=[],traffic=[],pedestrians=[],collisionShapes=[],trafficRoutes=[]
 let mapCanvas=$('minimap'),mapCtx=mapCanvas.getContext('2d'),fullCanvas=$('largeMap'),fullCtx=fullCanvas.getContext('2d');
 let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,modeToastAt=0;
 let rainMesh, rainPositions, textures=[],spinner=0;
+let human=null, humanLoadError='', districtMarkers=[];
+const humanFallbackLabel='PROCEDURAL CHARACTER FALLBACK';
 const vec=(x,y,z)=>new T.Vector3(x,y,z);
 const geo=(lat,lon)=>({x:(lon-CENTER.lon)*M_PER_DEG_LON,z:-(lat-CENTER.lat)*M_PER_DEG_LAT});
 const inverseGeo=(x,z)=>({lat:CENTER.lat-z/M_PER_DEG_LAT,lon:CENTER.lon+x/M_PER_DEG_LON});
@@ -33,8 +44,8 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const smoothAngle=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 function toast(s){let el=$('toast');el.textContent=s;el.classList.add('show');clearTimeout(toast._tid);toast._tid=setTimeout(()=>el.classList.remove('show'),3000)}
 function initThree(){
-  scene=new T.Scene();scene.background=new T.Color(0xb4a89c);scene.fog=new T.FogExp2(0x9e9b94,.00112);
-  camera=new T.PerspectiveCamera(65,innerWidth/innerHeight,.15,2300);
+  scene=new T.Scene();scene.background=new T.Color(0xb4a89c);scene.fog=new T.FogExp2(0x9e9b94,.00052);
+  camera=new T.PerspectiveCamera(65,innerWidth/innerHeight,.15,6000);
   renderer=new T.WebGLRenderer({canvas:$('world'),antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
@@ -54,8 +65,8 @@ function initThree(){
     buildingMaterials.push(new T.MeshStandardMaterial({color:shades[i],map:fac,roughness:.83,metalness:.05}));
     roofMaterials.push(new T.MeshStandardMaterial({color:0x858782,roughness:1}));
   }
-  ground=new T.Mesh(new T.PlaneGeometry(2500,2500),new T.MeshStandardMaterial({color:0x777e73,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=-.07;scene.add(ground);
-  const groundgrid=new T.GridHelper(2200,110,0x79847b,0x79847b);groundgrid.position.y=-.047;groundgrid.material.opacity=.075;groundgrid.material.transparent=true;scene.add(groundgrid);
+  ground=new T.Mesh(new T.PlaneGeometry(6400,6400),new T.MeshStandardMaterial({color:0x777e73,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=-.07;scene.add(ground);
+  const groundgrid=new T.GridHelper(5400,108,0x79847b,0x79847b);groundgrid.position.y=-.047;groundgrid.material.opacity=.075;groundgrid.material.transparent=true;scene.add(groundgrid);
   treeCanopy=new T.MeshStandardMaterial({color:0x384f38,roughness:1});
   onResize();window.addEventListener('resize',onResize);window.addEventListener('visibilitychange',()=>{if(document.hidden&&state.playing)pause(true)});
 }
@@ -122,18 +133,20 @@ function addRoads(){
 }
 function createBuildings(){
  let count=0;
- for(const b of geometryMap.buildings){if(count>1100)break;const ps=b.points;if(ps.length<4)continue;
+ for(const b of geometryMap.buildings){if(count>=1350)break;const ps=b.points;if(ps.length<4)continue;
   const distinct=ps.slice(0,-1);let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
   for(const p of distinct){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z)}
   const area=(maxX-minX)*(maxZ-minZ);if(area<9||area>22000)continue;
   const id=b.id||count+1, floors=Number(b.tags['building:levels'])||0;
   const taggedHeight=parseFloat(b.tags.height)||0;
-  const height=clamp(taggedHeight||floors*3.2||rand(7,34,id),3.8,83);
+  const posLat=CENTER.lat-(minZ+maxZ)*.5/M_PER_DEG_LAT;
+  const affluent=(posLat>23.784 && posLat<23.801);
+  const height=clamp(taggedHeight||floors*3.2||rand(affluent?12:7,affluent?58:35,id),3.8,affluent?132:95);
   const ix=Math.floor(hash(id)*buildingMaterials.length);
   try{
    const shape=new T.Shape(distinct.map(p=>new T.Vector2(p.x,-p.z)));
    const g=new T.ExtrudeGeometry(shape,{depth:height,steps:1,bevelEnabled:false,curveSegments:1});g.rotateX(-Math.PI/2);
-   const m=new T.Mesh(g,[roofMaterials[ix],buildingMaterials[ix]]);m.castShadow=true;m.receiveShadow=true;scene.add(m);cityObjects.push(m);count++;
+   const m=new T.Mesh(g,[roofMaterials[ix],buildingMaterials[ix]]);m.castShadow=count<240;m.receiveShadow=true;scene.add(m);cityObjects.push(m);count++;
    collisionShapes.push({minX,maxX,minZ,maxZ,points:distinct});
    if(hash(id+99)>.75&&height>12&&count<650){const roof=box(Math.min(5,(maxX-minX)*.35),1.5,Math.min(5,(maxZ-minZ)*.35),paint(0x777d7b),.5*(minX+maxX),height+.75,.5*(minZ+maxZ));scene.add(roof);cityObjects.push(roof)}
    if(hash(id+11)>.8){const tank=cylinder(.9,.9,2,paint(0x373d41),.5*(minX+maxX),height+1,.5*(minZ+maxZ),10);scene.add(tank);cityObjects.push(tank)}
@@ -151,7 +164,7 @@ function addTree(x,z,r){const size=3.5+r*4;
  for(let j=0;j<3;j++){const canopy=new T.Mesh(new T.IcosahedronGeometry(size*(.47+hash(j+r)*.19),2),new T.MeshStandardMaterial({color:new T.Color().setHSL(.31+hash(r+j)*.04,.19,.19+hash(r+j*3)*.06),roughness:1}));canopy.position.set(x+(j-1)*size*.23,size+j*.45+size*.25,z+(hash(r+j*13)-.5)*size*.25);canopy.castShadow=true;scene.add(canopy);cityObjects.push(canopy)}
 }
 function createParksAndWaters(){
- const gmat=new T.MeshStandardMaterial({color:0x566e4e,roughness:1}),wmat=new T.MeshPhysicalMaterial({color:0x415b5b,roughness:.26,metalness:.27,clearcoat:.7,clearcoatRoughness:.17});
+ const gmat=new T.MeshStandardMaterial({color:0x476445,roughness:1}),wmat=new T.MeshPhysicalMaterial({color:0x415b5b,roughness:.26,metalness:.27,clearcoat:.7,clearcoatRoughness:.17});
  for(let i=0;i<geometryMap.parks.length;i++){const park=geometryMap.parks[i];planePolygon(park.points,gmat,.02);if(i<18)treesAlongPark(park.points,park.id||i)}
  for(const w of geometryMap.waters)planePolygon(w.points,wmat,.036);
 }
@@ -235,11 +248,11 @@ function findNearestRoad(x,z){let min=Infinity,best={x,z,yaw:0};
  }}return best;
 }
 function spawnEntities(){
- let spawn=geo(23.7391,90.3983);spawn=findNearestRoad(spawn.x,spawn.z);
+ let spawn=geo(23.79075,90.40503);spawn=findNearestRoad(spawn.x,spawn.z);
  player={x:spawn.x,z:spawn.z,yaw:spawn.yaw};carYaw=spawn.yaw;
  person=makeCharacter();person.position.set(player.x,0,player.z);person.rotation.y=player.yaw;scene.add(person);
  userCar=makeCar(0x414e56);userCar.position.set(spawn.x+8,0,spawn.z+7);userCar.rotation.y=spawn.yaw;scene.add(userCar);
- const valid=trafficRoutes.filter(r=>polylineLength(r.points)>38&&r.width>4.5);const count=Math.min(35,valid.length);
+ const valid=trafficRoutes.filter(r=>polylineLength(r.points)>38&&r.width>4.5);const count=Math.min(44,valid.length);
  for(let i=0;i<count;i++){
   const path=valid[(i*23+7)%valid.length];const type=i%12===0?'bus':i%9===0?'cng':'sedan';const car=makeCar(randomCarColor(i),type);
   const length=polylineLength(path.points);traffic.push({object:car,path,progress:hash(i+17)*length,length,speed:(type==='bus'?4:type==='cng'?5.4:7)+hash(i)*3,forward:i%2===0?1:-1});scene.add(car);
@@ -259,10 +272,9 @@ function spawnEntities(){
  camera.position.set(spawn.x+9,7,spawn.z-14);cameraTarget.set(spawn.x,1.7,spawn.z);
 }
 function pickMission(){
- if(!roadPoints.length)return {x:player.x+130,z:player.z+100};
- const current={x:player.x,z:player.z};
- const eligible=roadPoints.filter(p=>{const d=Math.hypot(p.x-current.x,p.z-current.z);return d>130&&d<500});
- return (eligible.length?eligible:roadPoints)[Math.floor(hash(state.missionIndex*41+7)*((eligible.length?eligible:roadPoints).length))]||roadPoints[0];
+ const district=DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]);
+ const desired=geo(district.lat,district.lon);
+ return findNearestRoad(desired.x,desired.z);
 }
 function setMission(){
  missionTarget=pickMission();
@@ -272,7 +284,8 @@ function setMission(){
  const cone=new T.Mesh(new T.ConeGeometry(2,5,4),new T.MeshBasicMaterial({color:0xffc17c,transparent:true,opacity:.67}));cone.rotation.z=Math.PI;cone.position.y=8.5;missionMarker.add(cone);
  const pillar=new T.Mesh(new T.CylinderGeometry(1.25,1.25,15,16,1,true),new T.MeshBasicMaterial({color:0xeead54,transparent:true,opacity:.16,side:T.DoubleSide,depthWrite:false}));pillar.position.y=7.5;missionMarker.add(pillar);
  missionMarker.position.set(missionTarget.x,0,missionTarget.z);scene.add(missionMarker);
- $('missionTitle').textContent=['EXPLORE CENTRAL DHAKA','REACH THE NEXT DISTRICT','NIGHT RUN THROUGH DHAKA','FIND THE CITY CHECKPOINT'][state.missionIndex%4];
+ $('missionDetail').textContent='Explore the next Dhaka district. Walk or press E near a vehicle and drive to the gold checkpoint.';
+ $('missionTitle').textContent='DRIVE TO '+DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]).name;
 }
 function addRain(){
  const n=3500,rng=new Float32Array(n*3);for(let i=0;i<n;i++){rng[i*3]=(hash(i+3)-.5)*135;rng[i*3+1]=hash(i*1.3+4)*45+1;rng[i*3+2]=(hash(i*2+5)-.5)*135;}
@@ -280,16 +293,18 @@ function addRain(){
 }
 async function fetchRealDhaka(){
  const bbox=BBOX.join(',');
- const query=`[out:json][timeout:25];(way["highway"](${bbox});way["building"](${bbox});way["leisure"="park"](${bbox});way["landuse"="grass"](${bbox});way["natural"="water"](${bbox}););out geom;`;
- const hosts=['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.nchc.org.tw/api/interpreter'];
+ // Roads throughout the three-zone area; building outlines focused around
+ // game districts to avoid a huge, unstable, citywide browser data transfer.
+ const query=`[out:json][timeout:38];(way["highway"](${bbox});way["building"](23.786,90.398,23.798,90.419);way["building"](23.775,90.393,23.785,90.405);way["leisure"="park"](${bbox});way["landuse"="grass"](${bbox});way["natural"="water"](${bbox}););out geom;`;
+ const hosts=['https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
  let error;
  for(const host of hosts){
-  const controller=new AbortController(),tm=setTimeout(()=>controller.abort(),11000);
+  const controller=new AbortController(),tm=setTimeout(()=>controller.abort(),14500);
   try{
    const r=await fetch(host+'?data='+encodeURIComponent(query),{method:'GET',signal:controller.signal,mode:'cors'});
    if(!r.ok)throw new Error('Overpass '+r.status);
    const json=await r.json();const data=parseOverpass(json);
-   if(data.roads.length<25||data.buildings.length<10)throw new Error('Incomplete city data');
+   if(data.roads.length<30||data.buildings.length<10)throw new Error('Incomplete city data');
    clearTimeout(tm);return data;
   }catch(e){error=e;clearTimeout(tm)}
  }
@@ -307,35 +322,103 @@ function parseOverpass(response){
  return data;
 }
 function proceduralFallback(){
- // This is deliberately labeled as a simulated fallback, never as an authentic OSM map.
+ // When Overpass is unavailable: a clearly marked approximation of the three
+ // named districts, never mislabeled as precise OpenStreetMap geometry.
  const data={roads:[],buildings:[],parks:[],waters:[],source:'SIMULATED'};
  let id=1;
- const makeLine=(pts,width)=>data.roads.push({id:id++,tags:{highway:width>10?'primary':'residential'},width,points:pts.map(([x,z])=>({x,z}))});
- for(let i=-5;i<=5;i++){
-  const x=i*105+Math.sin(i*1.3)*22;
-  makeLine(Array.from({length:10},(_,j)=>[x+Math.sin(j*.9+i)*22,-570+j*124]),i%3===0?14:7);
-  const z=i*105+Math.cos(i*1.2)*19;
-  makeLine(Array.from({length:10},(_,j)=>[-560+j*124,z+Math.cos(j*.6+i)*18]),i%4===0?13:6);
- }
- // A denser urban grid, loosely evokes building scale but isn't a street-accurate map.
- for(let i=-5;i<5;i++)for(let j=-5;j<5;j++){
-  const xx=i*105+50+Math.sin(i)*10,zz=j*105+50+Math.cos(j)*10;
-  if(Math.hypot(xx,zz)<125)continue;
-  for(let k=0;k<4;k++){
-   let x=xx+(k%2?18:-18),z=zz+(k>1?18:-18),w=rand(15,26,id),d=rand(15,27,id+1);
-   const ps=[{x:x-w/2,z:z-d/2},{x:x+w/2,z:z-d/2},{x:x+w/2,z:z+d/2},{x:x-w/2,z:z+d/2},{x:x-w/2,z:z-d/2}];
-   data.buildings.push({id:id++,tags:{'building:levels':String(Math.floor(rand(2,10,id+2)))},points:ps});
-  }
- }
- const park=[{x:-120,z:-115},{x:110,z:-115},{x:110,z:120},{x:-120,z:120},{x:-120,z:-115}];data.parks.push({id:id++,points:park});
+ const road=(label,coords,width=11)=>data.roads.push({id:id++,tags:{name:label,highway:width>12?'primary':'residential'},width,points:coords.map(([lat,lon])=>geo(lat,lon))});
+ road('GULSHAN AVENUE',[[23.7797,90.4168],[23.7846,90.4152],[23.7903,90.4144],[23.7951,90.4139],[23.799,90.4148]],19);
+ road('KAMAL ATATURK AVENUE',[[23.7885,90.396],[23.7890,90.402],[23.7915,90.406],[23.7949,90.4139]],17);
+ road('BANANI MAIN ROAD',[[23.7738,90.3957],[23.7807,90.3955],[23.7867,90.3981],[23.7926,90.3998],[23.8001,90.399]],21);
+ road('MOHAKHALI LINK',[[23.7765,90.3927],[23.77794,90.39848],[23.7816,90.4040],[23.7855,90.4119],[23.7897,90.4161]],16);
+ road('GULSHAN LINK',[[23.78032,90.4168],[23.7820,90.4142],[23.788,90.4058],[23.79075,90.40503]],12);
+ // Small side streets make the offline demo navigable. Their positions are
+ // synthetic. Users can verify precise road geometry only in OSM live mode.
+ for(const d of DISTRICTS){const anchor=geo(d.lat,d.lon);for(let j=-4;j<=4;j++){
+   const x=anchor.x+j*76;
+   data.roads.push({id:id++,tags:{highway:'residential'},width:7,points:[{x,z:anchor.z-440},{x,z:anchor.z+440}]});
+   const z=anchor.z+j*78;
+   data.roads.push({id:id++,tags:{highway:'residential'},width:7,points:[{x:anchor.x-440,z},{x:anchor.x+440,z}]});
+ }}
+ for(const d of DISTRICTS){const c=geo(d.lat,d.lon);for(let i=-4;i<=4;i++)for(let j=-4;j<=4;j++){
+  if(Math.abs(i)<1&&Math.abs(j)<1)continue;
+  const x=c.x+i*78+37,z=c.z+j*78+35;
+  const ww=21+hash(id)*19,dd=20+hash(id+17)*20;
+  const points=[{x:x-ww/2,z:z-dd/2},{x:x+ww/2,z:z-dd/2},{x:x+ww/2,z:z+dd/2},{x:x-ww/2,z:z+dd/2},{x:x-ww/2,z:z-dd/2}];
+  data.buildings.push({id:id++,tags:{'building:levels':String(Math.floor(rand(4,d.id==='gulshan'?27:15,id+3)))},points});
+ }}
+ // Simulated waterway to keep the fallback scenic; not sourced map geometry.
+ const waterStart=geo(23.786,90.408),wx=waterStart.x,wz=waterStart.z;
+ data.waters.push({id:id++,points:[{x:wx-70,z:wz-450},{x:wx+20,z:wz-450},{x:wx+55,z:wz+350},{x:wx-65,z:wz+350},{x:wx-70,z:wz-450}]});
  return data;
 }
+
+function makeLandmarkBillboard(title) {
+ const c=document.createElement('canvas');c.width=700;c.height=145;
+ const ctx=c.getContext('2d');
+ ctx.fillStyle='rgba(6,17,29,.92)';ctx.fillRect(3,3,694,139);
+ ctx.strokeStyle='#f1b35f';ctx.lineWidth=4;ctx.strokeRect(5,5,690,135);
+ ctx.fillStyle='#f5c57f';ctx.font='700 29px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('DHAKA · BANGLADESH',350,42);
+ ctx.fillStyle='#eff4f6';ctx.font='700 44px Arial';ctx.fillText(title,350,97);
+ const texture=new T.CanvasTexture(c);texture.colorSpace=T.SRGBColorSpace;
+ const marker=new T.Sprite(new T.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));
+ marker.scale.set(62,13,1);return marker;
+}
+function createDistrictMarkers(){
+ for(const d of DISTRICTS){
+  const p=geo(d.lat,d.lon),pos=findNearestRoad(p.x,p.z);
+  const group=new T.Group();group.position.set(pos.x,0,pos.z);
+  const shaft=new T.Mesh(new T.CylinderGeometry(.12,.12,19,8),new T.MeshStandardMaterial({color:0xc6a169,metalness:.63,roughness:.3}));shaft.position.y=9.5;group.add(shaft);
+  const sign=makeLandmarkBillboard(d.name);sign.position.set(0,24,0);group.add(sign);
+  const halo=new T.Mesh(new T.TorusGeometry(4,.18,8,32),new T.MeshBasicMaterial({color:0xffc267}));halo.rotation.x=-Math.PI/2;halo.position.y=.35;group.add(halo);
+  scene.add(group);districtMarkers.push(group);
+ }
+}
+function nearestDistrict(x,z){
+ let closest=DISTRICTS[0],least=Infinity;
+ for(const d of DISTRICTS){const a=geo(d.lat,d.lon),dist=(x-a.x)**2+(z-a.z)**2;
+   if(dist<least){least=dist;closest=d;}}
+ return closest;
+}
+function jumpToDistrict(id){
+ if(!state.playing||state.paused||state.loading)return;
+ const d=DISTRICTS.find(d=>d.id===id);if(!d)return;
+ const p=geo(d.lat,d.lon),near=findNearestRoad(p.x,p.z);
+ if(state.inCar){userCar.position.set(near.x,0,near.z);carYaw=near.yaw;userCar.rotation.y=carYaw;carSpeed=0;}
+ player.x=near.x;player.z=near.z;player.yaw=near.yaw;
+ person.position.set(near.x,0,near.z);person.rotation.y=near.yaw;
+ cameraYaw=near.yaw;
+ camera.position.set(near.x+11,7,near.z-15);
+ cameraTarget.set(near.x,1.7,near.z);
+ $('district').textContent=d.name;
+ toast('EXPLORING '+d.name+(state.realMap?' · OSM ROADS':' · SAMPLE LAYOUT'));
+}
+async function loadRealHuman(){
+ $('characterStatus').textContent='LOADING RIGGED HUMAN MODEL';
+ try {
+  const module=await import('./human.js');
+  const character=await module.makeAnimatedHuman(T);
+  human=character;
+  person.remove(person.children[person.children.length-1]); // optional fallback ground shadow
+  while(person.children.length)person.remove(person.children[0]);
+  person.add(human.model);
+  $('characterStatus').textContent='RIGGED 3D HUMAN · IDLE / WALK / RUN';
+  toast('TEXTURED HUMAN MODEL LOADED · WALK / RUN ANIMATIONS');
+ }catch(err){
+  console.warn('Rigged human unavailable, procedural placeholder used',err);
+  humanLoadError=String(err?.message||err);
+  $('characterStatus').textContent=humanFallbackLabel;
+  toast('3D CHARACTER ASSET UNAVAILABLE · CHECK INTERNET');
+ }
+}
 async function setupWorld(){
- $('mapStatus').textContent='DOWNLOADING DHAKA...';
- try{geometryMap=await fetchRealDhaka();state.realMap=true;$('mapStatus').textContent='OPENSTREETMAP LIVE';toast('Real Dhaka roads & building outlines loaded');}
- catch(err){console.warn('OSM unavailable, using clearly labeled sample scene:',err);geometryMap=proceduralFallback();state.realMap=false;$('mapStatus').textContent='SIMULATED MAP (OFFLINE)';$('district').textContent='CENTRAL DHAKA · SAMPLE SCENE';$('mapCredit').textContent='Simulated fallback — NOT an accurate map. Reload with OSM access.';}
- createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();spawnEntities();addRain();
- state.loading=false;$('district').textContent=state.realMap?'SHAHBAG / RAMNA · DHAKA':'CENTRAL DHAKA · SAMPLE MAP';
+ $('mapStatus').textContent='LOADING GULSHAN / BANANI / MOHAKHALI...';
+ try{geometryMap=await fetchRealDhaka();state.realMap=true;$('mapStatus').textContent='REAL OSM ROAD NETWORK';toast('Gulshan, Banani & Mohakhali OSM street data loaded');}
+ catch(err){console.warn('OSM unavailable, using clearly labeled sample scene:',err);geometryMap=proceduralFallback();state.realMap=false;$('mapStatus').textContent='MAP SERVICE OFFLINE · APPROXIMATE STREETS';$('district').textContent='3 DISTRICTS · SAMPLE SCENE';$('mapCredit').textContent='Approximate streets — NOT accurate; reload for OpenStreetMap.';}
+ createParksAndWaters();addRoads();const buildings=createBuildings();addCityFurniture();spawnEntities();createDistrictMarkers();addRain();
+ // Start player-model loading immediately, without blocking city navigation.
+ void loadRealHuman();
+ state.loading=false;$('district').textContent=state.realMap?'BANANI / GULSHAN / MOHAKHALI':'BANANI / GULSHAN / MOHAKHALI · APPROXIMATE';
  if(state.realMap)console.info(`OSM city: ${geometryMap.roads.length} roads, ${buildings} 3D buildings`);
  drawMap(mapCtx,310,310,true);drawMap(fullCtx,920,660,false);
 }
@@ -351,6 +434,10 @@ function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown',
  if(k==='r'){state.rain=!state.rain;rainMesh.visible=state.rain;$('weatherText').textContent=state.rain?'MONSOON RAIN':'CLEAR';toast(state.rain?'MONSOON WEATHER ENABLED':'SKIES CLEARED')}
  if(k==='v'){state.wideCamera=!state.wideCamera;toast(state.wideCamera?'WIDE CAMERA':'CLOSE FOLLOW CAMERA')}
  if(k==='m')toggleMap();
+ if(k==='1')jumpToDistrict('gulshan');
+ if(k==='2')jumpToDistrict('banani');
+ if(k==='3')jumpToDistrict('mohakhali');
+ if(k==='4')jumpToDistrict('gulshan1');
 }
 function enterExitVehicle(){
  const dx=userCar.position.x-player.x,dz=userCar.position.z-player.z,dist=Math.hypot(dx,dz);
@@ -413,17 +500,20 @@ function updateControls(dt,elapsed){
   person.position.set(player.x,0,player.z);person.rotation.y=player.yaw;
   const phase=elapsed*(keys['shift']?14:9),stride=mag?Math.sin(phase)*.67:0;person.userData.legs[0].rotation.x=stride;person.userData.legs[1].rotation.x=-stride;
   person.userData.arms[0].rotation.x=-stride*.72;person.userData.arms[1].rotation.x=stride*.72;
-  person.position.y=Math.abs(stride)*.055;
+  person.position.y=human?0:Math.abs(stride)*.055;
+  if(human)human.update(dt,mag>.05,!!keys['shift']);
  }
  if(keys['q'])cameraYaw-=dt*1.65;
  if(keys['f'])cameraYaw+=dt*1.65;
- const dist=state.wideCamera?23:state.inCar?13:8.2;
- const height=state.wideCamera?13:state.inCar?6.4:4.7;
+ const dist=state.wideCamera?25:state.inCar?13:5.7;
+ const height=state.wideCamera?14:state.inCar?6.4:3.7;
  const target=vec(player.x,state.inCar?1.8:1.62,player.z);
  cameraTarget.lerp(target,1-Math.exp(-dt*8));
  const dest=vec(target.x-Math.sin(cameraYaw)*dist,height,target.z-Math.cos(cameraYaw)*dist);
  camera.position.lerp(dest,1-Math.exp(-dt*4.4));camera.lookAt(cameraTarget);
  const kms=Math.round(walkSpeed);$('speed').textContent=String(kms).padStart(2,'0');$('speedBar').style.width=clamp(kms/145*100,0,100)+'%';
+ const district=nearestDistrict(player.x,player.z);
+ $('district').textContent=district.name+(state.realMap?'':' · APPROX.');
  const gp=inverseGeo(player.x,player.z);$('coords').textContent=`${gp.lat.toFixed(5)}° N, ${gp.lon.toFixed(5)}° E`;
  const distance=Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z);$('missionDistance').textContent=Math.ceil(distance)+' m TO TARGET';
  if(distance<8){state.cash+=500;state.missionIndex++;$('missionCredits').textContent='৳ '+state.cash.toLocaleString();toast('MISSION COMPLETE · ৳500 EARNED');setMission()}
@@ -439,13 +529,13 @@ function updateLighting(dt){
  hemi.intensity=lerp(hemi.intensity,night?.73:state.rain?1.4:2,dt*.9);
  sun.intensity=lerp(sun.intensity,night?.27:state.rain?.9:3,dt*.9);
  renderer.toneMappingExposure=lerp(renderer.toneMappingExposure,night?.9:state.rain?1.05:1.28,dt*.9);
- scene.fog.density=lerp(scene.fog.density,night?.00165:state.rain?.0019:.00112,dt*.7);
+ scene.fog.density=lerp(scene.fog.density,night?.0007:state.rain?.00085:.00052,dt*.7);
  $('timeText').textContent=night?'23:20':state.rain?'18:10':'17:40';
 }
 function drawMap(ctx,w,h,local){
  if(!ctx||!geometryMap.roads.length)return;
  ctx.save();ctx.clearRect(0,0,w,h);ctx.fillStyle='#101d28';ctx.fillRect(0,0,w,h);
- const px=local?player.x:0,pz=local?player.z:0,scale=local?.38:Math.min(w/1500,h/1450),ox=w/2,oy=h/2;
+ const px=local?player.x:0,pz=local?player.z:0,scale=local?.24:Math.min(w/4900,h/3900),ox=w/2,oy=h/2;
  const project=p=>[ox+(p.x-px)*scale,oy+(p.z-pz)*scale];
  if(!local){ctx.lineWidth=1;ctx.strokeStyle='#24323b';for(let i=-600;i<=600;i+=100){const a=project({x:i,z:-700}),b=project({x:i,z:700});ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();}}
  for(const park of geometryMap.parks){ctx.fillStyle='#2c4236';ctx.beginPath();park.points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
@@ -453,10 +543,11 @@ function drawMap(ctx,w,h,local){
  ctx.lineCap='round';ctx.lineJoin='round';
  for(const r of geometryMap.roads){ctx.beginPath();for(let i=0;i<r.points.length;i++){let [x,y]=project(r.points[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='#4d606b';ctx.lineWidth=Math.max(1,r.width*scale);ctx.stroke();}
  if(!local){ctx.fillStyle='#25343a';for(let i=0;i<geometryMap.buildings.length;i+=1){let b=geometryMap.buildings[i];ctx.beginPath();b.points.forEach((p,j)=>{let [x,y]=project(p);j?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.fill()}}
+ for(const d of DISTRICTS){const pp=geo(d.lat,d.lon),[dx,dy]=project(pp);ctx.fillStyle='#eac285';ctx.beginPath();ctx.arc(dx,dy,3.8,0,Math.PI*2);ctx.fill();if(!local){ctx.fillStyle='#f5f6f7';ctx.font='bold 12px sans-serif';ctx.fillText(d.name,dx+9,dy-7)}}
  const [mx,my]=project(missionTarget);ctx.beginPath();ctx.fillStyle='#eab266';ctx.arc(mx,my,local?5:8,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.strokeStyle='#eab266';ctx.lineWidth=1;ctx.arc(mx,my,local?12:16,0,Math.PI*2);ctx.stroke();
  const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(-player.yaw);
  ctx.fillStyle='#91c9ed';ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(6,9);ctx.lineTo(0,5);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore();
- if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · SHAHBAG / RAMNA',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?'Real OSM map geometry':'SIMULATED FALLBACK MAP',25,53);}
+ if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?'Real OSM map geometry':'SIMULATED FALLBACK MAP',25,53);}
  ctx.restore();
 }
 let mapTick=0;
@@ -465,7 +556,7 @@ function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDel
  renderer.render(scene,camera);
 }
 function bindUI(){
- $('play').onclick=()=>{if(state.loading){toast('Map is still loading');return}state.playing=true;$('intro').classList.add('hidden');toast(state.realMap?'WELCOME TO DHAKA · EXPLORE THE REAL STREET NETWORK':'SAMPLE WORLD · RELOAD ONLINE FOR ACCURATE DHAKA MAP')};
+ $('play').onclick=()=>{if(state.loading){toast('Map is still loading');return}state.playing=true;$('intro').classList.add('hidden');toast(state.realMap?'WELCOME · REAL OSM STREET GEOMETRY':'MAP SERVICE OFFLINE · APPROXIMATE DISTRICT ROAD LAYOUT')};
  $('resume').onclick=()=>pause(false);$('restart').onclick=()=>location.reload();$('retry').onclick=()=>location.reload();$('closeMap').onclick=toggleMap;
  document.addEventListener('keydown',handleKeyDown);document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;held[e.key.toLowerCase()]=false});
  document.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;for(const k in held)held[k]=false});
@@ -473,6 +564,7 @@ function bindUI(){
  document.addEventListener('mouseup',()=>mouseDown=false);
  document.addEventListener('mousemove',e=>{if(mouseDown&&state.playing&&!state.paused){cameraYaw-=(e.clientX-mousePrevX)*.005;mousePrevX=e.clientX}});
  $('minimapWrap').onclick=()=>{if(state.playing)toggleMap()};
+ document.querySelectorAll('[data-district]').forEach(btn=>btn.addEventListener('click',()=>jumpToDistrict(btn.dataset.district)));
 }
 try{initThree();bindUI();animate();await setupWorld();$('play').disabled=false;}
 catch(err){console.error('World setup failed',err);$('mapStatus').textContent='SCENE ERROR';$('intro').classList.add('hidden');$('fatal').classList.remove('hidden');$('fatalText').textContent=String(err?.stack||err);}
