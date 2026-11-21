@@ -571,6 +571,79 @@ function handleKeyDown(e){const k=e.key.toLowerCase();if(['arrowup','arrowdown',
  if(k==='3')jumpToDistrict('mohakhali');
  if(k==='4')jumpToDistrict('gulshan1');
 }
+
+/* Street carjacking: F starts a 2.2s close-range interaction.
+ * The occupied AI car stops, its driver runs away, and the player takes control.
+ * This is fictional videogame behavior, not a simulation of real crime. */
+function startCarjacking(){
+ if(!state.playing||state.paused||state.loading||state.largeMap||jobsOpen)return;
+ if(state.inCar){toast('EXIT YOUR CURRENT CAR BEFORE HIJACKING ANOTHER');return;}
+ const result=carjacking.begin(player,traffic);
+ toast(result.reason);
+ $('carjackProgress')?.classList.toggle('hidden',!result.ok);
+}
+function updateCarjacking(dt){
+ const had=!!carjacking.active;
+ const status=carjacking.update(dt,{player,traffic,inCar:state.inCar});
+ if(had){
+  const fill=$('carjackFill');
+  if(fill)fill.style.width=Math.round((status.progress||0)*100)+'%';
+ }
+ if(status.done){
+  $('carjackProgress')?.classList.add('hidden');
+  completeCarjack(status.record);
+ }else if(status.cancelled){
+  $('carjackProgress')?.classList.add('hidden');
+  toast(status.reason);
+ }else if(!carjacking.active){
+  $('carjackProgress')?.classList.add('hidden');
+ }
+}
+function completeCarjack(record){
+ if(!record||state.inCar)return;
+ const idx=traffic.indexOf(record);
+ if(idx<0)return;
+ traffic.splice(idx,1);
+ const vehicle=record.object;
+ launchEscapingDriver(vehicle);
+ userCar=vehicle;state.inCar=true;person.visible=false;
+ carSpeed=0;carYaw=vehicle.rotation.y;player.x=vehicle.position.x;player.z=vehicle.position.z;player.yaw=carYaw;
+ person.position.set(player.x,0,player.z);
+ crouched=false;jumpHeight=0;jumpVelocity=0;person.scale.y=1;
+ game.carHealth=carDurability.get(vehicle)??100;
+ vehicle.userData.stolen=true;
+ game.registerCarjack();
+ game.save(player);
+ $('modeLabel').textContent=vehicle.userData.kind.toUpperCase()+' · STOLEN';
+ refreshGameplayHUD();
+ toast('CAR SNATCHED · DRIVER ESCAPED · ★★ POLICE ALERT');
+}
+function launchEscapingDriver(vehicle){
+ const npc=makeCharacter();
+ npc.scale.setScalar(.94);
+ const angle=vehicle.rotation.y;
+ npc.position.set(vehicle.position.x+Math.cos(angle)*2.4,0,vehicle.position.z-Math.sin(angle)*2.4);
+ npc.rotation.y=angle;
+ scene.add(npc);
+ const awayX=npc.position.x-player.x,awayZ=npc.position.z-player.z;
+ const length=Math.hypot(awayX,awayZ)||1;
+ fleeingDrivers.push({model:npc,x:awayX/length,z:awayZ/length,time:0});
+}
+function updateFleeingDrivers(dt,elapsed){
+ for(let i=fleeingDrivers.length-1;i>=0;i--){
+  const driver=fleeingDrivers[i];
+  driver.time+=dt;
+  const npc=driver.model,speed=5.5;
+  const nextX=npc.position.x+driver.x*speed*dt,nextZ=npc.position.z+driver.z*speed*dt;
+  if(!collidesWithBuilding(nextX,nextZ))npc.position.set(nextX,Math.abs(Math.sin(elapsed*14))*.04,nextZ);
+  npc.rotation.y=Math.atan2(driver.x,driver.z);
+  const stride=Math.sin(elapsed*13+i)*.55;
+  if(npc.userData.legs?.length>=2){npc.userData.legs[0].rotation.x=stride;npc.userData.legs[1].rotation.x=-stride;}
+  if(npc.userData.arms?.length>=2){npc.userData.arms[0].rotation.x=-stride*.65;npc.userData.arms[1].rotation.x=stride*.65;}
+  if(driver.time>8){scene.remove(npc);fleeingDrivers.splice(i,1);}
+ }
+}
+
 // E enters parked/empty vehicles; F forcibly takes an occupied traffic vehicle.
 function closestBoardableVehicle(){
  if(state.inCar)return null;
