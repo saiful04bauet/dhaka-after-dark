@@ -56,3 +56,27 @@ test('Web Mercator coordinate correctness for Bangladesh real street radar',()=>
  const radar=new TileRadar();
  assert.equal(radar.draw(null,310,310,{lat:23.79,lon:90.4}),false);
 });
+
+test('3D OSM building selection covers all modeled Dhaka districts',async()=>{
+ const {selectBalancedBuildings}=await load('../src/osm_city_details.js');
+ const districts=[
+  {id:'gulshan',lat:23.795,lon:90.414},
+  {id:'banani',lat:23.791,lon:90.405},
+  {id:'mohakhali',lat:23.778,lon:90.398},
+  {id:'gulshan1',lat:23.780,lon:90.416}
+ ];
+ const geo=(lat,lon)=>({x:(lon-90.407)*101800,z:-(lat-23.787)*111320});
+ const buildings=[];
+ for(let i=0;i<districts.length;i++){
+  const p=geo(districts[i].lat,districts[i].lon);
+  for(let j=0;j<20;j++){
+   const x=p.x+j,z=p.z+j;
+   const pts=[{x,z},{x:x+1,z},{x:x+1,z:z+1},{x,z:z+1},{x,z}];
+   buildings.push({id:i*100+j,points:pts,tags:{building:'yes'}});
+  }
+ }
+ const selected=selectBalancedBuildings(buildings,districts,geo,12);
+ assert.equal(selected.length,12);
+ const represented=new Set(selected.map(x=>Math.floor(x.id/100)));
+ assert.equal(represented.size,4,'all four districts should appear in first 12 rendered outlines');
+});
