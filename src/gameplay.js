@@ -7,7 +7,8 @@ export const MISSIONS=Object.freeze([
  {id:'avenue',title:'GULSHAN AVENUE DRIVE',area:'gulshan',kind:'drive',reward:1100,limit:235,car:true,brief:'Drive from Banani toward Gulshan 2. Stay in your vehicle.'},
  {id:'heat',title:'ESCAPE THE HEAT',area:'gulshan1',kind:'escape',reward:1500,limit:280,car:false,brief:'Reach Gulshan 1 AND lose every wanted star before collecting the reward.'},
  {id:'service',title:'NORTH DHAKA EXPRESS',area:'banani',kind:'delivery',reward:1250,limit:240,car:true,brief:'Complete a return delivery through North Dhaka without running out of time.'},
- {id:'scout',title:'MOHAKHALI SCOUT',area:'mohakhali',kind:'explore',reward:950,limit:240,car:false,brief:'Explore the streets and reach the next orange location marker.'}
+ {id:'scout',title:'MOHAKHALI SCOUT',area:'mohakhali',kind:'explore',reward:950,limit:240,car:false,brief:'Explore the streets and reach the next orange location marker.'},
+ {id:'snatch',title:'BANANI VEHICLE GETAWAY',area:'gulshan',kind:'carjack',reward:1900,limit:330,car:true,brief:'Press F near a traffic vehicle, take control, lose the police and reach Gulshan 2 while driving the snatched car.'}
 ]);
 const MAX=100, clamp=(x,a,b)=>Math.min(b,Math.max(a,Number.isFinite(Number(x))?Number(x):a));
 const num=(v,lo=0,hi=1e6)=>clamp(Number(v),lo,hi);
@@ -19,6 +20,7 @@ export class UrbanGameplay{
   this.wanted=0;this.wantedReason='';this.lostSight=0;this.heatCooldown=0;
   this.missionIndex=0;this.missionTime=0;this.missionActive=false;
   this.garageLevel=0;this.completed=0;this.savedPosition=null;
+  this.carSnatches=0;this.missionCarSnatched=false;
   this.lastEvent='';this.autosaveRemaining=14;
   this.load();
  }
@@ -26,13 +28,13 @@ export class UrbanGameplay{
  get remaining(){return Math.max(0,Math.ceil(this.mission.limit-this.missionTime));}
  get currentReward(){return this.mission.reward;}
  startMission(){
-  this.missionActive=true;this.missionTime=0;
+  this.missionActive=true;this.missionTime=0;this.missionCarSnatched=false;
   this.lastEvent='MISSION STARTED: '+this.mission.title;
   if(this.mission.kind==='escape')this.addWanted(2,'escape challenge');
   return this.lastEvent;
  }
  failMission(reason='TIME EXPIRED'){
-  this.missionActive=false;this.missionTime=0;
+  this.missionActive=false;this.missionTime=0;this.missionCarSnatched=false;
   this.wanted=Math.max(0,this.wanted-(this.mission.kind==='escape'?2:0));
   this.lastEvent='MISSION FAILED: '+reason+' — PRESS N TO RETRY';
   return this.lastEvent;
@@ -42,12 +44,22 @@ export class UrbanGameplay{
   if(distance>11)return {ok:false,reason:'GET CLOSER TO THE CHECKPOINT'};
   if(this.mission.car&&!inCar)return {ok:false,reason:'ARRIVE IN A VEHICLE'};
   if(this.mission.kind==='escape'&&this.wanted!==0)return {ok:false,reason:'LOSE YOUR WANTED STARS FIRST'};
+  if(this.mission.kind==='carjack'){
+   if(!this.missionCarSnatched)return {ok:false,reason:'HIJACK A TRAFFIC CAR WITH F FIRST'};
+   if(this.wanted!==0)return {ok:false,reason:'ESCAPE AND LOSE YOUR WANTED STARS BEFORE DELIVERY'};
+  }
   const reward=this.mission.reward;
   this.cash+=reward;this.completed++;this.missionIndex++;this.missionTime=0;
-  this.missionActive=false;
+  this.missionActive=false;this.missionCarSnatched=false;
   this.lastEvent='MISSION COMPLETE · +৳'+reward.toLocaleString()+' · PRESS N FOR NEXT JOB';
   this.save();
   return {ok:true,reward,reason:this.lastEvent};
+ }
+ registerCarjack(){
+  this.carSnatches++;if(this.missionActive&&this.mission.kind==='carjack')this.missionCarSnatched=true;
+  this.addWanted(2,'traffic car snatched');
+  this.lastEvent='VEHICLE TAKEN · ★★ WANTED · LOSE THE POLICE';
+  return this.lastEvent;
  }
  addWanted(stars=1,reason='reckless driving'){
   this.wanted=Math.round(clamp(this.wanted+stars,0,5));
@@ -113,7 +125,7 @@ export class UrbanGameplay{
  save(position){
   if(position&&Number.isFinite(position.x)&&Number.isFinite(position.z))this.savedPosition={x:position.x,z:position.z};
   const snapshot={version:6,cash:this.cash,health:this.health,armor:this.armor,stamina:this.stamina,
-   garageLevel:this.garageLevel,completed:this.completed,missionIndex:this.missionIndex,
+   garageLevel:this.garageLevel,completed:this.completed,missionIndex:this.missionIndex,carSnatches:this.carSnatches,
    savedPosition:this.savedPosition};
   try{this.storage?.setItem(SAVE_KEY,JSON.stringify(snapshot));return true;}catch{return false;}
  }
@@ -123,7 +135,7 @@ export class UrbanGameplay{
   if(!s||s.version!==6)return false;
   this.cash=num(s.cash,0,1e8);this.health=num(s.health,1,100);this.armor=num(s.armor,0,100);
   this.stamina=num(s.stamina,0,100);this.garageLevel=num(s.garageLevel,0,3);
-  this.completed=num(s.completed,0,1e6);this.missionIndex=Math.floor(num(s.missionIndex,0,1e6));
+  this.completed=num(s.completed,0,1e6);this.missionIndex=Math.floor(num(s.missionIndex,0,1e6));this.carSnatches=num(s.carSnatches||0,0,1e6);
   const p=s.savedPosition;if(p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<2700&&Math.abs(p.z)<2700)this.savedPosition={x:p.x,z:p.z};
   return true;
  }
