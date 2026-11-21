@@ -31,7 +31,7 @@ let roadMaterial,roadMajorMaterial,sideMaterial,buildingMaterials=[],roofMateria
 let cityObjects=[],traffic=[],parkedCars=[],pedestrians=[],collisionShapes=[],trafficRoutes=[],missionMarker,missionHalo,missionTarget={x:0,z:0},roadPoints=[];
 let mapCanvas=$('minimap'),mapCtx=mapCanvas.getContext('2d'),fullCanvas=$('largeMap'),fullCtx=fullCanvas.getContext('2d');
 let carSpeed=0,carYaw=0,walkSpeed=0,cameraYaw=.55,mouseDown=false,mousePrevX=0,modeToastAt=0;
-let rainMesh, rainPositions, textures=[],spinner=0;
+let rainMesh, rainPositions, textures=[],spinner=0,skyDome,cityLights=[];
 let human=null, humanLoadError='', districtMarkers=[];
 const humanFallbackLabel='PROCEDURAL CHARACTER FALLBACK';
 const vec=(x,y,z)=>new T.Vector3(x,y,z);
@@ -44,31 +44,38 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const smoothAngle=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 function toast(s){let el=$('toast');el.textContent=s;el.classList.add('show');clearTimeout(toast._tid);toast._tid=setTimeout(()=>el.classList.remove('show'),3000)}
 function initThree(){
-  scene=new T.Scene();scene.background=new T.Color(0xb4a89c);scene.fog=new T.FogExp2(0x9e9b94,.00052);
+  scene=new T.Scene();scene.background=new T.Color(0x9cabb9);scene.fog=new T.FogExp2(0xb3b7b6,.00043);
   camera=new T.PerspectiveCamera(65,innerWidth/innerHeight,.15,6000);
   renderer=new T.WebGLRenderer({canvas:$('world'),antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-  renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.28;
+  renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.16;
   clock=new T.Clock();
-  hemi=new T.HemisphereLight(0xe0e4ee,0x625948,2.0);scene.add(hemi);
-  sun=new T.DirectionalLight(0xffdfb0,3.0);sun.position.set(-150,290,-100);sun.castShadow=true;
+  hemi=new T.HemisphereLight(0xdbe9ff,0x79756a,1.55);scene.add(hemi);
+  sun=new T.DirectionalLight(0xffe4bd,2.7);sun.position.set(-150,290,-100);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-210;sun.shadow.camera.right=210;
   sun.shadow.camera.top=210;sun.shadow.camera.bottom=-210;sun.shadow.camera.near=1;sun.shadow.camera.far=800;
   sun.shadow.bias=-.0005;scene.add(sun);sun.target.position.set(0,0,0);scene.add(sun.target);
-  const asphaltTex=makeAsphaltTexture();roadMaterial=new T.MeshStandardMaterial({color:0x66666a,roughness:.84,metalness:.05,map:asphaltTex});
-  roadMajorMaterial=new T.MeshStandardMaterial({color:0x57585e,roughness:.72,metalness:.08,map:asphaltTex});
+  const asphaltTex=makeAsphaltTexture();roadMaterial=new T.MeshStandardMaterial({color:0x67696b,roughness:.9,metalness:.03,map:asphaltTex});
+  roadMajorMaterial=new T.MeshStandardMaterial({color:0x585d61,roughness:.88,metalness:.04,map:asphaltTex});
   sideMaterial=new T.MeshStandardMaterial({color:0x777b76,roughness:.98});
   for(let i=0;i<8;i++){
     const fac=makeFacadeTexture(i);textures.push(fac);
     const shades=[0xc9c6bd,0x969da0,0xaaa79b,0xa9b1b4,0xbbb5a8,0xa7a8ab,0xc8b6a2,0xb9c2bd];
-    buildingMaterials.push(new T.MeshStandardMaterial({color:shades[i],map:fac,roughness:.83,metalness:.05}));
+    buildingMaterials.push(new T.MeshStandardMaterial({color:shades[i],map:fac,roughness:i%3===0?.37:.79,metalness:i%3===0?.24:.06}));
     roofMaterials.push(new T.MeshStandardMaterial({color:0x858782,roughness:1}));
   }
-  ground=new T.Mesh(new T.PlaneGeometry(6400,6400),new T.MeshStandardMaterial({color:0x777e73,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=-.07;scene.add(ground);
+  addSkyAtmosphere();ground=new T.Mesh(new T.PlaneGeometry(6400,6400),new T.MeshStandardMaterial({color:0x6d7771,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=-.07;scene.add(ground);
   const groundgrid=new T.GridHelper(5400,108,0x79847b,0x79847b);groundgrid.position.y=-.047;groundgrid.material.opacity=.075;groundgrid.material.transparent=true;/* Reference-grid deliberately hidden: city roads and surfaces replace editor wireframes. */
   treeCanopy=new T.MeshStandardMaterial({color:0x384f38,roughness:1});
   onResize();window.addEventListener('resize',onResize);window.addEventListener('visibilitychange',()=>{if(document.hidden&&state.playing)pause(true)});
+}
+function addSkyAtmosphere(){
+ // Physical-size 3D atmospheric background; no copied GTA or photo textures.
+ const mat=new T.ShaderMaterial({uniforms:{uNight:{value:0},uRain:{value:0}},
+   side:T.BackSide,depthWrite:false,vertexShader:"varying vec3 vDir; void main(){vDir=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",fragmentShader:"varying vec3 vDir; uniform float uNight; uniform float uRain;\n void main(){\n vec3 d=normalize(vDir);float y=clamp(d.y*0.7+0.34,0.0,1.0);\n vec3 day=mix(vec3(0.76,0.74,0.69),vec3(0.16,0.40,0.68),pow(y,0.65));\n vec3 storm=mix(vec3(0.54,0.57,0.61),vec3(0.25,0.32,0.40),pow(y,0.7));\n vec3 sky=mix(day,storm,uRain);\n float cloud=sin(d.x*45.0+d.z*19.0)*sin(d.z*31.0-d.x*12.0)*0.5+0.5;\n float band=smoothstep(0.51,0.82,cloud)*smoothstep(0.025,0.16,d.y)*(1.0-smoothstep(0.55,0.85,d.y));\n sky=mix(sky,vec3(0.90,0.87,0.80),band*0.25*(1.0-uRain));\n float glow=pow(max(dot(d,normalize(vec3(-0.5,0.18,-0.74))),0.0),115.0);\n sky+=vec3(1.0,0.60,0.30)*glow*0.28*(1.0-uRain);\n vec3 night=mix(vec3(0.075,0.11,0.17),vec3(0.008,0.025,0.070),y);\n gl_FragColor=vec4(mix(sky,night,uNight),1.0);\n }"});
+ skyDome=new T.Mesh(new T.SphereGeometry(2450,32,20),mat);
+ skyDome.frustumCulled=false;skyDome.renderOrder=-1000;scene.add(skyDome);
 }
 function makeAsphaltTexture(){
  const c=document.createElement('canvas');c.width=c.height=256;const ct=c.getContext('2d');ct.fillStyle='#b8b8b8';ct.fillRect(0,0,256,256);
@@ -546,7 +553,7 @@ function updateControls(dt,elapsed){
  if(keys['f'])cameraYaw+=dt*1.65;
  const dist=state.wideCamera?25:state.inCar?13:5.7;
  const height=state.wideCamera?14:state.inCar?6.4:3.7;
- const target=vec(player.x,state.inCar?1.8:1.62,player.z);
+ sun.position.set(player.x-150,290,player.z-100);sun.target.position.set(player.x,0,player.z);const target=vec(player.x,state.inCar?1.8:1.62,player.z);
  cameraTarget.lerp(target,1-Math.exp(-dt*8));
  const dest=vec(target.x-Math.sin(cameraYaw)*dist,height,target.z-Math.cos(cameraYaw)*dist);
  camera.position.lerp(dest,1-Math.exp(-dt*4.4));camera.lookAt(cameraTarget);
@@ -575,12 +582,15 @@ function updateControls(dt,elapsed){
 }
 function updateLighting(dt){
  const night=state.night;
- const bg=new T.Color(night?0x101e2a:state.rain?0x68737b:0xb1a79c);
- scene.background.lerp(bg,.028);scene.fog.color.lerp(new T.Color(night?0x162330:state.rain?0x717880:0xaaa69f),.032);
- hemi.intensity=lerp(hemi.intensity,night?.73:state.rain?1.4:2,dt*.9);
- sun.intensity=lerp(sun.intensity,night?.27:state.rain?.9:3,dt*.9);
- renderer.toneMappingExposure=lerp(renderer.toneMappingExposure,night?.9:state.rain?1.05:1.28,dt*.9);
- scene.fog.density=lerp(scene.fog.density,night?.0007:state.rain?.00085:.00052,dt*.7);
+ if(skyDome){skyDome.position.set(player?.x||0,0,player?.z||0);skyDome.material.uniforms.uNight.value=lerp(skyDome.material.uniforms.uNight.value,night?1:0,dt*.75);skyDome.material.uniforms.uRain.value=lerp(skyDome.material.uniforms.uRain.value,state.rain?1:0,dt*.75);}
+ for(const light of cityLights)light.intensity=night?3.1:0;
+ if(roadMaterial){roadMaterial.roughness=state.rain?.27:.9;roadMajorMaterial.roughness=state.rain?.27:.88;}
+ const bg=new T.Color(night?0x071328:state.rain?0x65717b:0xaebbc5);
+ scene.background.lerp(bg,.028);scene.fog.color.lerp(new T.Color(night?0x1b2b38:state.rain?0x76828c:0xa7b1b7),.032);
+ hemi.intensity=lerp(hemi.intensity,night?.44:state.rain?1.08:1.55,dt*.9);
+ sun.intensity=lerp(sun.intensity,night?.14:state.rain?.95:2.7,dt*.9);
+ renderer.toneMappingExposure=lerp(renderer.toneMappingExposure,night?.75:state.rain?1.08:1.16,dt*.9);
+ scene.fog.density=lerp(scene.fog.density,night?.00055:state.rain?.00066:.00043,dt*.7);
  $('timeText').textContent=night?'23:20':state.rain?'18:10':'17:40';
 }
 function drawMap(ctx,w,h,local){
