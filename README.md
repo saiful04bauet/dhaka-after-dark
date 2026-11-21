@@ -1,7 +1,19 @@
-# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.6)
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.7)
 
 **Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
 
+## NEW in v0.7 — vehicle snatching and geographic map radar
+
+- **Car snatching (F):** On foot, approach an occupied AI traffic vehicle within 9 meters, then press F. Traffic pauses, an interruptible 2.2-second takeover progress meter runs, and you must remain near the car. If you walk away or enter another vehicle, the attempt cancels. Success transfers control, shows a fleeing NPC driver, records the snatch, and creates a two-star wanted response. Short cooldown between attempts. **E** still enters empty parked cars.
+- **New getaway mission:** After the previous five missions, Banani Vehicle Getaway requires snatching a traffic car, escaping until wanted stars clear, then driving that specific stolen vehicle to Gulshan 2. Reward: ৳1,900.
+- **Real street GPS radar:** The small in-game minimap uses cached geographically aligned OpenStreetMap street-map tiles when available. Mission/route, player, service and police markers overlay the tiles. Fallback to the schematic map if tile service or network fails.
+- **OSM road signs:** 3D wayfinding labels use genuine available OSM road-name tags. Sign placement is illustrative.
+- **UI:** F HIJACK touch control, takeover progress bar, persistent snatch counter, visible map attribution.
+- **Tests:** tests/carjacking.mjs covers hijack success/cancellation, mission rules and Web Mercator tile alignment; run with node --test tests/*.mjs.
+
+**Accuracy note:** OSM street tiles are real geographic map data, but road coverage may contain inaccuracies. 3D roads and building footprints use live OSM where available; the façades, street furniture and sign placements are still generated approximations. If 3D map data is unavailable it is clearly labeled approximate even if 2D tiles work. This is not real satellite imagery, photogrammetry, or finished GTA 5.
+
+**Status:** Source/code checks were performed; full live-browser and Cloudflare deployment checks remain unverified.
 ## NEW in v0.6 — STREET LIFE gameplay (GTA-style mechanics, not GTA 5 itself)
 
 The existing drivable North Dhaka browser prototype now adds several **playable original open-world systems**:
@@ -77,7 +89,8 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 | WASD or arrow keys (↑ ↓ ← →) | Walk / drive / reverse / steer |
 | On-screen directional arrows | Hold to walk or steer (desktop/touch) |
 | Shift | Sprint / accelerate |
-| E or ENTER / EXIT on screen | Board a parked or stopped car, or exit once stopped |
+| E / ENTER-EXIT | Enter an empty parked car or exit once stopped |
+| F / HIJACK on screen | Take an occupied AI traffic car after a 2.2-second interruptible animation |
 | Space | Jump on foot / handbrake in car |
 | C | Crouch / stand |
 | X | Talk to nearby pedestrian |
@@ -100,7 +113,11 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 
 - `index.html`: Main overlay, mission HUD and district selection
 - `src/main.js`: Three.js scene, geometry, OSM ingestion, vehicle/character controller, mission loop
-- `src/gameplay.js`: Timed tasks, wanted/health/stamina/damage, local save and economy
+- `src/gameplay.js`: Timed tasks, wanted/health/stamina/damage, snatch mission rules, local save and economy
+- `src/carjacking.js`: Hijack timing, cancellation, proximity check and cooldown
+- `src/radar_tiles.js`: Real OSM tile GPS radar and geographic transforms
+- `src/osm_city_details.js`: 3D labels using available OSM road names
+- `tests/carjacking.mjs`: Carjacking/getaway and GPS map regression tests
 - `src/urban_runtime.js`: Police pursuit, city service markers and minimap icons
 - `tests/streetlife.mjs`: Gameplay economy and mission regression tests
 - `src/map_navigation.js`: Connected street-route graph and live Leaflet map overlay
