@@ -739,15 +739,20 @@ function updateLighting(dt){
 }
 function drawMap(ctx,w,h,local){
  if(!ctx||!geometryMap.roads.length)return;
- ctx.save();ctx.clearRect(0,0,w,h);ctx.fillStyle='#101d28';ctx.fillRect(0,0,w,h);
- const px=local?player.x:0,pz=local?player.z:0,scale=local?.24:Math.min(w/4900,h/3900),ox=w/2,oy=h/2;
+ ctx.save();ctx.clearRect(0,0,w,h);
+ const center=local?inverseGeo(player.x,player.z):CENTER,zoom=local?15:14;
+ const realTiles=tileRadar.draw(ctx,w,h,{lat:center.lat,lon:center.lon,zoom});
+ if(!realTiles){ctx.fillStyle='#101d28';ctx.fillRect(0,0,w,h);}
+ const px=local?player.x:0,pz=local?player.z:0;
+ const scale=realTiles?metersToPixels(center.lat,zoom):(local?.24:Math.min(w/4900,h/3900));
+ const ox=w/2,oy=h/2;
  const project=p=>[ox+(p.x-px)*scale,oy+(p.z-pz)*scale];
  if(!local){ctx.lineWidth=1;ctx.strokeStyle='#24323b';for(let i=-600;i<=600;i+=100){const a=project({x:i,z:-700}),b=project({x:i,z:700});ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();}}
- for(const park of geometryMap.parks){ctx.fillStyle='#2c4236';ctx.beginPath();park.points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
- for(const water of geometryMap.waters){ctx.fillStyle='#28505a';ctx.beginPath();water.points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
+ if(!realTiles)for(const park of geometryMap.parks){ctx.fillStyle='#2c4236';ctx.beginPath();park.points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
+ if(!realTiles)for(const water of geometryMap.waters){ctx.fillStyle='#28505a';ctx.beginPath();water.points.forEach((p,i)=>{const [x,y]=project(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
  ctx.lineCap='round';ctx.lineJoin='round';
- for(const r of geometryMap.roads){ctx.beginPath();for(let i=0;i<r.points.length;i++){let [x,y]=project(r.points[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='#4d606b';ctx.lineWidth=Math.max(1,r.width*scale);ctx.stroke();}
- if(!local){ctx.fillStyle='#25343a';for(let i=0;i<geometryMap.buildings.length;i+=1){let b=geometryMap.buildings[i];ctx.beginPath();b.points.forEach((p,j)=>{let [x,y]=project(p);j?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.fill()}}
+ if(!realTiles)for(const r of geometryMap.roads){ctx.beginPath();for(let i=0;i<r.points.length;i++){let [x,y]=project(r.points[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle='#4d606b';ctx.lineWidth=Math.max(1,r.width*scale);ctx.stroke();}
+ if(!local&&!realTiles){ctx.fillStyle='#25343a';for(let i=0;i<geometryMap.buildings.length;i+=1){let b=geometryMap.buildings[i];ctx.beginPath();b.points.forEach((p,j)=>{let [x,y]=project(p);j?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.fill()}}
  for(const d of DISTRICTS){const pp=geo(d.lat,d.lon),[dx,dy]=project(pp);ctx.fillStyle='#eac285';ctx.beginPath();ctx.arc(dx,dy,3.8,0,Math.PI*2);ctx.fill();if(!local){ctx.fillStyle='#f5f6f7';ctx.font='bold 12px sans-serif';ctx.fillText(d.name,dx+9,dy-7)}}
  urban?.drawMinimap(ctx,project);
  // Solid blue shows a navigable route along connected OSM roads; the dashed
@@ -759,7 +764,7 @@ function drawMap(ctx,w,h,local){
  const [mx,my]=project(missionTarget);ctx.beginPath();ctx.fillStyle='#eab266';ctx.arc(mx,my,local?5:8,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.strokeStyle='#eab266';ctx.lineWidth=1;ctx.arc(mx,my,local?12:16,0,Math.PI*2);ctx.stroke();
  const [xx,yy]=project({x:player.x,z:player.z});ctx.save();ctx.translate(xx,yy);ctx.rotate(minimapArrowRotation(player.yaw));
  ctx.fillStyle='#91c9ed';ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(6,9);ctx.lineTo(0,5);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore();
- if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(state.realMap?(routeInfo?'OSM CONNECTED STREET ROUTE':'OSM STREETS · BEARING ONLY'):'SIMULATED FALLBACK · BEARING ONLY',25,53);}
+ if(!local){ctx.fillStyle='#dfe6e9';ctx.font='600 18px sans-serif';ctx.fillText('DHAKA · GULSHAN / BANANI / MOHAKHALI',25,33);ctx.fillStyle='#abb3b9';ctx.font='13px sans-serif';ctx.fillText(realTiles?'REAL OPENSTREETMAP TILES · '+(state.realMap?'3D OSM GEOMETRY':'3D APPROXIMATION'):state.realMap?(routeInfo?.roadBased?'OSM ROAD PATH':'OSM STREETS · BEARING ONLY'):'SIMULATED 3D MAP',25,53);}
  ctx.restore();
 }
 let mapTick=0;
