@@ -658,6 +658,7 @@ function closestBoardableVehicle(){
 }
 function enterExitVehicle(){
  if(!state.inCar){
+  if(carjacking.active){toast('FINISH OR MOVE AWAY TO CANCEL THE CARJACKING');return;}
   const near=closestBoardableVehicle();
   if(!near){toast('E: EMPTY PARKED CAR · F: SNATCH OCCUPIED TRAFFIC CAR');return;}
   const idx=parkedCars.indexOf(near.record);if(idx>=0)parkedCars.splice(idx,1);
@@ -788,7 +789,7 @@ function updateControls(dt,elapsed){
  const distance=Math.hypot(player.x-missionTarget.x,player.z-missionTarget.z);
  $('missionDistance').textContent=Math.ceil(routeInfo?.distance??distance)+' m '+(routeInfo?.roadBased?'BY ROAD':'STRAIGHT-LINE');
  if(distance<11&&game.missionActive){
-  const result=game.completeMission({distance,inCar:state.inCar});
+  const result=game.completeMission({distance,inCar:state.inCar,stolenCar:!!(state.inCar&&userCar?.userData?.stolen)});
   if(result.ok){state.cash=game.cash;state.missionIndex=game.missionIndex;game.save(player);toast(result.reason);setMission();renderJobBoard();}
   else if(result.reason!==game._checkpointHint){game._checkpointHint=result.reason;toast(result.reason);}
  }else if(distance>20)game._checkpointHint=null;
@@ -874,6 +875,7 @@ function refreshGameplayHUD(){
  set('staminaNum',Math.round(game.stamina));set('vehicleNum',Math.round(game.carHealth));
  set('wantedStars','★'.repeat(game.wanted)+'☆'.repeat(5-game.wanted));
  set('walletCash','৳ '+game.cash.toLocaleString());
+ set('carSnatchCount',String(game.carSnatches||0));
  set('policeHint',game.wanted?'POLICE PURSUIT':'FREE ROAM');
  set('missionCredits','৳ '+game.cash.toLocaleString());
  set('missionTimer',String(Math.floor(game.remaining/60)).padStart(2,'0')+':'+String(game.remaining%60).padStart(2,'0'));
