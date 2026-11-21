@@ -57,3 +57,42 @@
 #bigMap .leaflet-container{font:13px Arial,sans-serif}
 #bigMap .leaflet-control-attribution{font-size:10px}
 @media(max-width:700px){#bigMap{padding:12px}#leafletMap{min-height:270px;height:58vh}#mapToolbar{font-size:9px;flex-wrap:wrap}.panel-footer{gap:10px;flex-wrap:wrap}}
+
+/* v0.6 STREET LIFE gameplay HUD and mission board */
+#playerStats{position:absolute;left:32px;top:254px;width:232px;padding:13px 15px;background:linear-gradient(110deg,#071522e6,#142637dc);border:1px solid #ffffff31;border-left:2px solid #a7bed1;box-shadow:0 12px 32px #0007;pointer-events:none}
+.stats-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
+.stats-top strong{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.09em;color:#cbd7e0}
+#wantedStars{font-size:18px;white-space:nowrap;letter-spacing:0;color:#ffcc66;text-shadow:0 0 7px #0006}
+.statline{display:grid;grid-template-columns:55px 1fr 26px;gap:7px;align-items:center;margin:6px 0}
+.statline span{font:700 9px 'DM Sans',sans-serif;letter-spacing:.08em;color:#e9edf1}
+.statline b{text-align:right;font:700 11px 'Barlow Condensed',sans-serif}
+.statmeter{height:6px;background:#e3e7eb29;border-radius:2px;overflow:hidden}
+.statmeter i{height:100%;display:block;background:linear-gradient(90deg,#d65958,#f17a75);transition:width .18s}
+.statline.armor i{background:#649ee0}.statline.stamina i{background:#69c69d}.statline.carstat i{background:#edb36f}
+.player-wallet{display:flex;justify-content:space-between;align-items:center;gap:4px;border-top:1px solid #ffffff23;margin-top:12px;padding-top:10px}
+#walletCash{font:800 21px 'Barlow Condensed',sans-serif;color:#f6c889}
+#policeHint{font:700 9px 'DM Sans',sans-serif;letter-spacing:.05em;color:#a8cad2;text-align:right}
+#openJobs{display:block;width:100%;margin-top:11px;border:1px solid #eab86d7a;background:#ffffff0d;color:#f1c187;padding:7px 9px;font:700 11px 'DM Sans',sans-serif;letter-spacing:.08em;cursor:pointer}
+#openJobs:hover{background:#b9874830}
+#mission .mission-row+.mission-row{margin-top:6px;padding-top:5px;border:0;color:#f0e1c8}
+#missionStatus{font-weight:800}
+#jobBoard{position:fixed;z-index:14;top:50%;left:50%;transform:translate(-50%,-50%);width:min(95vw,790px);max-height:90vh;overflow:auto;padding:24px;background:linear-gradient(135deg,#071622f5,#152736f5);border:1px solid #ffffff54;box-shadow:0 23px 110px #000e}
+.job-head,.job-footer{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.job-head small{color:#f2c481;font-size:10px;letter-spacing:.14em}
+.job-head h2{margin:4px 0 18px;font:900 41px 'Barlow Condensed',sans-serif}
+.job-head button,#closeJobs{border:1px solid #ffffff7d;background:none;color:white;font-size:21px;width:37px;height:37px;cursor:pointer}
+#jobList{display:grid;gap:8px}
+.jobrow{padding:11px 14px;border:1px solid #ffffff25;background:#ffffff0a;display:grid;grid-template-columns:40px 1fr 92px;align-items:center;gap:13px}
+.jobrow.current{border-color:#edbe79;background:#d1a1631b}
+.jobrow .number{font:800 24px 'Barlow Condensed',sans-serif;color:#f2c382}
+.jobrow strong{display:block;font:800 19px 'Barlow Condensed',sans-serif}
+.jobrow small{display:block;font-size:11px;color:#becbd4;line-height:1.45}
+.jobrow .reward{text-align:right;font:800 19px 'Barlow Condensed',sans-serif;color:#e5b277}
+.jobrow .reward small{color:#b9c1c8;font-size:9px}
+.jobrow.locked{opacity:.48}
+.job-footer{margin-top:17px;padding-top:15px;border-top:1px solid #ffffff27}
+.job-footer span{font-size:11px;color:#c5d1d8;line-height:1.5}
+#startJob{flex-shrink:0;white-space:nowrap;border:0;background:#efbc77;color:#0a1621;padding:12px 14px;font:800 14px 'Barlow Condensed',sans-serif;letter-spacing:.06em;cursor:pointer}
+.service-help{margin-top:15px;border-top:1px solid #ffffff22;padding-top:13px;font:11px/1.7 'DM Sans',sans-serif;color:#b8c6ce}
+@media(max-width:900px){#playerStats{left:12px;top:213px;width:173px;padding:8px 9px}#wantedStars{font-size:14px}.statline{grid-template-columns:41px 1fr 20px;gap:3px;margin:3px 0}.statline span{font-size:7px}#walletCash{font-size:15px}#mission{bottom:152px}#jobBoard{padding:14px}.jobrow{grid-template-columns:25px 1fr 65px;gap:7px}.jobrow strong{font-size:15px}.jobrow small{font-size:9px}.jobrow .reward{font-size:16px}}
+@media(max-width:590px){#playerStats{top:225px;left:9px;width:154px;padding:7px 7px}#playerStats .stats-top strong{font-size:12px}#mission{bottom:180px;right:8px;width:153px}.job-footer{flex-wrap:wrap}.job-head h2{font-size:29px}#jobBoard{max-height:85vh}}
