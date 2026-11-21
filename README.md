@@ -1,6 +1,14 @@
-# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.4)
+# DHAKA / AFTER DARK — Gulshan • Banani • Mohakhali (v0.5)
 
 **Playable pre-alpha**, not a finished GTA VI-quality game. This release shifts the first region from Shahbag to **Gulshan 2 / Gulshan 1, Banani Road 11 and Mohakhali Bus Stand**. It uses real OpenStreetMap street and building outlines **when the public Overpass service responds**. If the OSM service fails, the UI clearly indicates that the district streets are an approximate simulated fallback, **not a real map**.
+
+## NEW in v0.5 — corrected controls and real-world map
+
+- **Left / right corrected:** The screen-relative walking direction and behind-car steering now match the left/right arrow key or D-pad button. GPS compass and minimap player arrow orientation are fixed as well.
+- **Interactive map:** Press **M** or click the minimap. The full map loads Leaflet with real OpenStreetMap street tiles (zoom and pan), actual player coordinates, checkpoint and nearby district markers. A **RECENTER** button returns to the player's GPS location.
+- **Road-shaped GPS path:** When connected OpenStreetMap roads load successfully, a local A* graph follows *connected OSM road nodes*, showing a solid blue route and approximate road distance. Disconnected/unavailable street data produces a clearly labeled dashed amber **bearing only** line instead of an invented street route. The routing is not traffic-aware, legal turn-by-turn navigation; one-way rules and turn restrictions are not enforced.
+- **Connectivity fallback:** If tile CDN/OSM data is unavailable, the browser falls back to the schematic view and labels simulated road geometry accurately. Interactive street-map tiles can work independently even when the Overpass building/road-data endpoint fails.
+- **Regression tests:** Direction, steering, compass and connected/disconnected road routes are covered in `tests/navigation.mjs`. Run `node --test tests/navigation.mjs` using Node.js 20+.
 
 ## NEW in v0.3
 
@@ -68,6 +76,9 @@ Internet access and WebGL are required for the Three.js engine, OpenStreetMap da
 
 - `index.html`: Main overlay, mission HUD and district selection
 - `src/main.js`: Three.js scene, geometry, OSM ingestion, vehicle/character controller, mission loop
+- `src/map_navigation.js`: Connected street-route graph and live Leaflet map overlay
+- `src/control_math.js`: Tested camera-relative walking, steering and compass orientation
+- `tests/navigation.mjs`: Control and GPS navigation regression cases
 - `src/human.js`: Runtime GLB rigged character loader and animation blending
 - `src/style.css`: HUD and screen styling
 - `README_BN.md`: Bangla setup overview
