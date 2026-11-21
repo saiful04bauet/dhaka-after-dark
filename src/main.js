@@ -66,7 +66,7 @@ function initThree(){
     roofMaterials.push(new T.MeshStandardMaterial({color:0x858782,roughness:1}));
   }
   ground=new T.Mesh(new T.PlaneGeometry(6400,6400),new T.MeshStandardMaterial({color:0x777e73,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=-.07;scene.add(ground);
-  const groundgrid=new T.GridHelper(5400,108,0x79847b,0x79847b);groundgrid.position.y=-.047;groundgrid.material.opacity=.075;groundgrid.material.transparent=true;scene.add(groundgrid);
+  const groundgrid=new T.GridHelper(5400,108,0x79847b,0x79847b);groundgrid.position.y=-.047;groundgrid.material.opacity=.075;groundgrid.material.transparent=true;/* Reference-grid deliberately hidden: city roads and surfaces replace editor wireframes. */
   treeCanopy=new T.MeshStandardMaterial({color:0x384f38,roughness:1});
   onResize();window.addEventListener('resize',onResize);window.addEventListener('visibilitychange',()=>{if(document.hidden&&state.playing)pause(true)});
 }
@@ -411,7 +411,7 @@ async function loadRealHuman(){
   person.remove(person.children[person.children.length-1]); // optional fallback ground shadow
   while(person.children.length)person.remove(person.children[0]);
   person.add(human.model);
-  $('characterStatus').textContent='RIGGED 3D HUMAN · IDLE / WALK / RUN';
+  $('characterStatus').textContent=character.label+' · IDLE / WALK / RUN';
   toast('TEXTURED HUMAN MODEL LOADED · WALK / RUN ANIMATIONS');
  }catch(err){
   console.warn('Rigged human unavailable, procedural placeholder used',err);
@@ -501,10 +501,9 @@ function updatePedestrians(dt,elapsed){
 function updateTraffic(dt){
  for(const t of traffic){
   t.stopCooldown-=dt;
-  if(t.stoppedFor>0){t.stoppedFor=Math.max(0,t.stoppedFor-dt);t.actualSpeed=0;continue;}
-  if(t.stopCooldown<=0){t.stoppedFor=3.8+hash(t.length+t.progress)*3.5;t.stopCooldown=17+hash(t.progress+t.length)*20;t.actualSpeed=0;continue;}
-  t.actualSpeed=t.speed;
-  t.progress+=t.speed*dt*t.forward;if(t.progress>t.length){t.progress=t.length;t.forward=-1}if(t.progress<0){t.progress=0;t.forward=1}
+  if(t.stoppedFor>0){t.stoppedFor=Math.max(0,t.stoppedFor-dt);t.actualSpeed=0;}
+  else if(t.stopCooldown<=0){t.stoppedFor=3.8+hash(t.length+t.progress)*3.5;t.stopCooldown=17+hash(t.progress+t.length)*20;t.actualSpeed=0;}
+  else {t.actualSpeed=t.speed;t.progress+=t.speed*dt*t.forward;}if(t.progress>t.length){t.progress=t.length;t.forward=-1}if(t.progress<0){t.progress=0;t.forward=1}
   let left=t.progress;const pts=t.path.points;let a=pts[0],b=pts[1]||pts[0];for(let i=1;i<pts.length;i++){
    const d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].z-pts[i-1].z);if(left<=d){a=pts[i-1];b=pts[i];break}left-=d;
   }
