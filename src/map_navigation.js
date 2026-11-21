@@ -65,7 +65,8 @@ export class StreetRouter{
     const ids=this.buckets.get((bx+dx)+','+(bz+dz))||[];
     for(const id of ids){const d=dist(pt,this.nodes[id]);if(d<minimum){best=id;minimum=d;}}
    }
-   if(best!==-1&&minimum<(radius*100+30))break;
+   // Always scan adjacent cells: a nearer OSM junction may lie just across a grid boundary.
+   if(radius>=1&&best!==-1&&minimum<radius*100)break;
   }
   return best;
  }
