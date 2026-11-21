@@ -10,3 +10,40 @@
 .character-status{margin-top:8px;color:#a7cdb5;font-size:9px;font-weight:700;letter-spacing:.09em;max-width:220px;margin-left:auto;line-height:1.45}
 @media(max-width:900px){#districtNav{top:104px;left:14px;max-width:min(97vw,390px);padding:9px}.district-choices button{padding:6px 7px;font-size:8px}#mission{bottom:250px}}
 @media(max-height:700px){#districtNav{top:90px}#mission{top:46%;transform:translateY(-25%)}.intro-stats{margin:20px 0;padding:13px 0}}
+/* v0.3 — gameplay controls and navigation. Real interactions, not decoration. */
+#navigationHUD{position:absolute;top:25px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:13px;min-width:258px;padding:11px 17px;background:linear-gradient(130deg,rgba(6,17,29,.87),rgba(22,38,51,.72));border:1px solid #ffffff30;box-shadow:0 12px 36px #0007;pointer-events:none}
+.nav-pointer{width:49px;height:49px;display:grid;place-items:center;border-radius:50%;background:#071b2b;border:1px solid #6bbce49c;box-shadow:inset 0 0 18px #3377b33a}
+#navArrow{display:block;transform-origin:center;color:#74d1ff;font:800 39px/1 'Barlow Condensed',sans-serif;text-shadow:0 0 10px #4da5de}
+.nav-copy small{display:block;font:700 9px 'DM Sans',sans-serif;color:#90c2dc;letter-spacing:.13em;margin-bottom:4px}
+.nav-copy strong{display:block;font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.045em}
+.nav-copy>span{display:block;font:700 12px 'DM Sans',sans-serif;color:#f0bd79;margin-top:2px}
+#interactionPrompt{position:absolute;bottom:145px;left:50%;transform:translateX(-50%) translateY(8px);padding:11px 17px;white-space:nowrap;opacity:0;transition:transform .18s,opacity .18s;pointer-events:none;font-size:11px;letter-spacing:.09em;background:rgba(3,16,29,.83);border:1px solid #8ad1e75c;box-shadow:0 10px 28px #0009}
+#interactionPrompt.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#interactionPrompt b{display:inline-grid;place-items:center;width:29px;height:26px;background:#e0b574;color:#111d2a;font:800 15px 'Barlow Condensed',sans-serif;margin-right:7px}
+#interactionPrompt small{color:#b6c8d0;margin-left:6px;font-size:9px}
+#touchControls{left:250px;bottom:92px;display:flex;align-items:center;gap:12px;z-index:8}
+.dpad{display:grid;grid-template:repeat(3,37px)/repeat(3,39px);gap:3px;user-select:none;touch-action:none}
+.dpad button,#touchAction{appearance:none;cursor:pointer;border:1px solid #ffffff48;color:#ecf5f8;background:rgba(9,27,42,.76);backdrop-filter:blur(6px);transition:background .15s,border-color .15s;touch-action:none}
+.dpad button:hover,.dpad button.pressed,#touchAction:hover{background:#2d6587bf;border-color:#7dd2ff}
+.dpad button{font-size:17px;line-height:1}
+.dpad .up{grid-column:2;grid-row:1}.dpad .left{grid-column:1;grid-row:2}.dpad .down{grid-column:2;grid-row:2}.dpad .right{grid-column:3;grid-row:2}
+#touchAction{height:59px;width:78px;padding:6px}
+#touchAction b{display:block;color:#ebc28a;font:800 26px 'Barlow Condensed',sans-serif}
+#touchAction small{display:block;font-size:8px;letter-spacing:.06em;white-space:nowrap}
+#vignette{background:radial-gradient(ellipse at 50% 45%,transparent 42%,rgba(1,5,9,.24) 100%)}
+#grain{opacity:.06}
+@media(max-width:1220px){#bottomHelp{gap:7px;max-width:90vw;flex-wrap:wrap;justify-content:center}#bottomHelp>span{font-size:8px}}
+@media(max-width:900px){
+ #navigationHUD{top:16px;left:50%;min-width:175px;padding:6px 9px;gap:7px}
+ .nav-pointer{width:30px;height:30px}#navArrow{font-size:27px}.nav-copy strong{font-size:12px}.nav-copy small{font-size:7px}.nav-copy>span{font-size:9px}
+ #touchControls{left:12px;bottom:9px;gap:7px}
+ .dpad{grid-template:repeat(3,30px)/repeat(3,32px);gap:2px}
+ #touchAction{height:49px;width:64px}#touchAction b{font-size:21px}#touchAction small{font-size:7px}
+ #interactionPrompt{bottom:117px;font-size:9px;padding:7px 10px;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+ #bottomHelp{display:none}#minimapWrap{bottom:143px;left:12px;transform:scale(.64)}
+ #speedHUD{bottom:39px;right:13px}
+ #districtNav{top:110px;max-width:300px}
+ #topRight{display:none}
+ #mission{bottom:157px;width:180px}
+}
+@media(max-width:590px){#navigationHUD{top:58px;left:auto;right:9px;transform:none;min-width:166px}#districtNav{top:128px;max-width:250px}#mission{bottom:185px}}
