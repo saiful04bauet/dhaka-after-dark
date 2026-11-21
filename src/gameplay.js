@@ -39,13 +39,14 @@ export class UrbanGameplay{
   this.lastEvent='MISSION FAILED: '+reason+' — PRESS N TO RETRY';
   return this.lastEvent;
  }
- completeMission({distance,inCar}){
+ completeMission({distance,inCar,stolenCar=false}){
   if(!this.missionActive)return {ok:false,reason:'PRESS N TO START THE MISSION'};
   if(distance>11)return {ok:false,reason:'GET CLOSER TO THE CHECKPOINT'};
   if(this.mission.car&&!inCar)return {ok:false,reason:'ARRIVE IN A VEHICLE'};
   if(this.mission.kind==='escape'&&this.wanted!==0)return {ok:false,reason:'LOSE YOUR WANTED STARS FIRST'};
   if(this.mission.kind==='carjack'){
    if(!this.missionCarSnatched)return {ok:false,reason:'HIJACK A TRAFFIC CAR WITH F FIRST'};
+   if(!stolenCar)return {ok:false,reason:'RETURN WITH THE HIJACKED VEHICLE'};
    if(this.wanted!==0)return {ok:false,reason:'ESCAPE AND LOSE YOUR WANTED STARS BEFORE DELIVERY'};
   }
   const reward=this.mission.reward;
