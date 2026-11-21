@@ -104,3 +104,17 @@
 #touchJump:active,#touchInteract:active{background:#28647c}
 @media(max-width:900px){#touchJump,#touchInteract{height:46px;min-width:51px;padding:3px}#touchJump b,#touchInteract b{font-size:19px}#touchJump small,#touchInteract small{font-size:7px}}
 @media(max-width:390px){#touchControls{left:4px;gap:3px}.dpad{grid-template:repeat(3,27px)/repeat(3,27px)}#touchAction{width:57px}#touchJump,#touchInteract{min-width:47px}}
+
+/* v0.7 carjacking interaction + georeferenced OSM radar */
+#touchHijack{height:58px;min-width:68px;cursor:pointer;background:#3d172adf;border:1px solid #fc839a96;color:#ffdce1;padding:5px;touch-action:manipulation}
+#touchHijack b{display:block;font:900 25px 'Barlow Condensed',sans-serif;color:#ff9caa}
+#touchHijack small{display:block;font:700 8px 'DM Sans',sans-serif;letter-spacing:.04em}
+#touchHijack:hover,#touchHijack:active{background:#7f243d}
+#carjackProgress{position:fixed;left:50%;bottom:205px;z-index:9;transform:translateX(-50%);padding:10px 15px;background:#120f1cdb;border:1px solid #ffb29783;min-width:246px;text-align:center;pointer-events:none}
+#carjackProgress strong{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.11em;color:#ffd9b0}
+.carjack-track{height:8px;width:100%;margin-top:9px;background:#e7d1b633;overflow:hidden}
+#carjackFill{display:block;height:100%;width:0%;background:linear-gradient(90deg,#ffbd72,#ff617e);transition:width .08s linear}
+#minimapWrap .map-label{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+#minimapWrap .map-label small{font:600 7px 'DM Sans',sans-serif;color:#c1cfd1;white-space:nowrap}
+@media(max-width:900px){#touchHijack{height:46px;min-width:49px;padding:3px}#touchHijack b{font-size:18px}#touchHijack small{font-size:7px}#carjackProgress{bottom:185px;min-width:175px}}
+@media(max-width:590px){#touchControls{flex-wrap:wrap;max-width:95vw}#touchHijack{min-width:44px}#carjackProgress{bottom:178px}}
