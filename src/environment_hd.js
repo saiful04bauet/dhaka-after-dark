@@ -171,3 +171,24 @@ export function placeDhakaStreetDetails(T,scene,districts,geo,findNearestRoad){
  }
  return {shelters,poles};
 }
+
+/* Optional CC0 urban HDRI from Poly Haven used strictly for PBR material
+ * reflection/illumination; the displayed 3D skyline stays Dhaka-inspired.
+ * Urban Street 01: https://polyhaven.com/a/urban_street_01 (CC0).
+ */
+export async function loadReflectionEnvironment(T,scene,renderer){
+ const {RGBELoader}=await import('https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/loaders/RGBELoader.js');
+ const url='https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/urban_street_01_1k.hdr';
+ const hdr=await Promise.race([
+  new RGBELoader().loadAsync(url),
+  new Promise((_,reject)=>setTimeout(()=>reject(Error('HDR lighting unavailable')),10000))
+ ]);
+ hdr.mapping=T.EquirectangularReflectionMapping;
+ const pmrem=new T.PMREMGenerator(renderer);
+ const converted=pmrem.fromEquirectangular(hdr);
+ scene.environment=converted.texture;
+ scene.environmentIntensity=.62;
+ hdr.dispose();
+ pmrem.dispose();
+ return true;
+}
