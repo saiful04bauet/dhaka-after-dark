@@ -1,6 +1,23 @@
-# DHAKA / AFTER DARK — ভার্সন ০.৫
+# DHAKA / AFTER DARK — ভার্সন ০.৬
 
 ঢাকার **গুলশান, বনানী ও মহাখালী** নিয়ে তৈরি প্রথম playable browser-based 3D game prototype। এটি GTA 6-এর মতো সম্পূর্ণ realistic commercial game নয়। প্রথম version-এর শাহবাগ ম্যাপ বদলে এখানে **Gulshan 2, Banani Road 11, Mohakhali Bus Stand এবং Gulshan 1** নেওয়া হয়েছে।
+
+## ভার্সন ০.৬ — GTA 5-স্টাইল Gameplay
+
+এটি একটি মৌলিক বাংলাদেশভিত্তিক browser open-world game prototype। GTA 5-এর সম্পূর্ণ গেম নয়; কয়েকটি গুরুত্বপূর্ণ interactive gameplay feature যোগ হয়েছে।
+
+- **Mission:** `J` চেপে mission board দেখো। `N` চেপে mission start/retry। Banani courier, Gulshan driving, পুলিশ এড়িয়ে পালানোর mission, express delivery ও Mohakhali exploration আছে। Mission-এ সময়সীমা এবং টাকার reward রয়েছে।
+- **Police chase:** থেমে থাকা traffic car নিয়ে গেলে বা গাড়ি দিয়ে অন্য গাড়িতে ধাক্কা দিলে wanted stars বাড়ে। Police patrol গাড়ি chase করে। দূরে পালাতে পারলে ধীরে ধীরে stars কমে। ধরা পড়লে অর্থদণ্ড ও mission fail।
+- **Player HUD:** Health, Armor, Stamina, Car Condition, Cash এবং ★ Wanted Level।
+- **Garage:** বেগুনি BANANI GARAGE marker-এর কাছে গাড়ি দাঁড় করিয়ে `G` চাপলে ৳300 দিয়ে repair, `U` দিলে engine upgrade (৳1,200 থেকে)। এটি gameplay-এর তৈরি fictional garage, বাস্তব service shop নয়।
+- **Clinic:** সবুজ MOHAKHALI CLINIC marker-এর কাছে গাড়ি থেকে নেমে `H` চাপলে ৳150 দিয়ে health/armor restore। এটিও game marker, প্রকৃত clinic নয়।
+- **On-foot:** `Space` = Jump, `C` = crouch, `X` = কাছে থাকা NPC-এর সাথে ছোট scripted কথোপকথন। গাড়িতে `Space` = brake, `B` = horn।
+- **Save:** `K` = manual save; প্রায় 15 সেকেন্ড পর পর autosave। টাকা, mission, upgrade ও position একই browser-এর localStorage-এ থাকে; account/cloud sync নেই।
+- **Mobile buttons:** Jump/Brake এবং Talk/Use touch buttons যোগ হয়েছে।
+
+**সীমাবদ্ধতা:** পুরো GTA 5-মানের content/graphics, professional combat, cinematic story, multiplayer বা advanced vehicle physics এখনো নেই। Police ও NPC AI সহজ model। Browser-এ সম্পূর্ণ end-to-end test করা হয়নি।
+
+`node --test tests/*.mjs` দিয়ে Node 20+ এ control, mission ও gameplay tests চালানো যাবে।
 
 ## ভার্সন ০.৫ — Arrow ও Map Fix
 
