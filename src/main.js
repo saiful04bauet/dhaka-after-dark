@@ -3,6 +3,8 @@ import {decorateBuildingFacades,createGroundedTree,placeDhakaStreetDetails,loadR
 import {installDetailedVehicles} from './vehicles_hd.js';
 import {StreetRouter,createLiveDhakaMap} from './map_navigation.js';
 import {cameraRelativeMove,steerVehicleYaw,minimapArrowRotation,gpsArrowRotationDegrees} from './control_math.js';
+import {UrbanGameplay,MISSIONS} from './gameplay.js';
+import {setupStreetLife} from './urban_runtime.js';
 const $ = id => document.getElementById(id);
 let THREE;
 try {
@@ -25,9 +27,11 @@ const DISTRICTS=[
  {id:'mohakhali', name:'MOHAKHALI BUS STAND',lat:23.77794,lon:90.39848,detail:'MOHAKHALI · BUS TERMINAL ZONE'},
  {id:'gulshan1', name:'GULSHAN 1 CIRCLE',lat:23.78032,lon:90.4168,detail:'GULSHAN 1 · CITY JUNCTION'}
 ];
-const MISSION_ORDER=['mohakhali','gulshan1','gulshan','banani'];
+const game=new UrbanGameplay();
+const carDurability=new Map();
+let urban=null,policeState={policeDistance:Infinity,busted:false},impactCooldown=0,hudFrame=0,jobsOpen=false;
 const M_PER_DEG_LAT=111320, M_PER_DEG_LON=111320*Math.cos(CENTER.lat*Math.PI/180);
-const state={playing:false,paused:false,inCar:false,night:false,rain:false,wideCamera:false,largeMap:false,cash:0,missionIndex:0,time:17.67,loading:true,realMap:false};
+const state={playing:false,paused:false,inCar:false,night:false,rain:false,wideCamera:false,largeMap:false,cash:game.cash,missionIndex:game.missionIndex,time:17.67,loading:true,realMap:false};
 const keys={};const held={};
 let geometryMap={roads:[],buildings:[],parks:[],waters:[],source:'procedural'};
 let scene,camera,renderer,clock,sun,hemi,ground,player,person,userCar,cameraTarget=new T.Vector3();
@@ -301,7 +305,8 @@ function findNearestRoad(x,z){let min=Infinity,best={x,z,yaw:0};
  }}return best;
 }
 function spawnEntities(){
- let spawn=geo(23.79075,90.40503);spawn=findNearestRoad(spawn.x,spawn.z);
+ let spawn=game.savedPosition&&Math.hypot(game.savedPosition.x,game.savedPosition.z)<2000?game.savedPosition:geo(23.79075,90.40503);
+ spawn=findNearestRoad(spawn.x,spawn.z);
  player={x:spawn.x,z:spawn.z,yaw:spawn.yaw};carYaw=spawn.yaw;
  person=makeCharacter();person.position.set(player.x,0,player.z);person.rotation.y=player.yaw;scene.add(person);
  userCar=makeCar(0x414e56);userCar.position.set(spawn.x+6,0,spawn.z+5);userCar.rotation.y=spawn.yaw;scene.add(userCar);
@@ -334,7 +339,7 @@ function spawnEntities(){
  camera.position.set(spawn.x+9,7,spawn.z-14);cameraTarget.set(spawn.x,1.7,spawn.z);
 }
 function pickMission(){
- const district=DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]);
+ const district=DISTRICTS.find(d=>d.id===game.mission.area);
  const desired=geo(district.lat,district.lon);
  return findNearestRoad(desired.x,desired.z);
 }
@@ -348,8 +353,9 @@ function setMission(){
  const cone=new T.Mesh(new T.ConeGeometry(2,5,4),new T.MeshBasicMaterial({color:0xffc17c,transparent:true,opacity:.67}));cone.rotation.z=Math.PI;cone.position.y=8.5;missionMarker.add(cone);
  const pillar=new T.Mesh(new T.CylinderGeometry(1.25,1.25,15,16,1,true),new T.MeshBasicMaterial({color:0xeead54,transparent:true,opacity:.16,side:T.DoubleSide,depthWrite:false}));pillar.position.y=7.5;missionMarker.add(pillar);
  missionMarker.position.set(missionTarget.x,0,missionTarget.z);scene.add(missionMarker);
- $('missionDetail').textContent='Explore the next Dhaka district. Walk or press E near a vehicle and drive to the gold checkpoint.';
- $('missionTitle').textContent='DRIVE TO '+DISTRICTS.find(d=>d.id===MISSION_ORDER[state.missionIndex%MISSION_ORDER.length]).name;
+ $('missionDetail').textContent=game.mission.brief;
+ $('missionTitle').textContent=game.mission.title;
+ refreshGameplayHUD();
 }
 function addRain(){
  const n=3500,rng=new Float32Array(n*3);for(let i=0;i<n;i++){rng[i*3]=(hash(i+3)-.5)*135;rng[i*3+1]=hash(i*1.3+4)*45+1;rng[i*3+2]=(hash(i*2+5)-.5)*135;}
@@ -446,6 +452,7 @@ function nearestDistrict(x,z){
 }
 function jumpToDistrict(id){
  if(!state.playing||state.paused||state.loading)return;
+ if(game.missionActive||game.wanted>0){toast('QUICK TRAVEL DISABLED DURING MISSIONS OR POLICE CHASE');return;}
  const d=DISTRICTS.find(d=>d.id===id);if(!d)return;
  const p=geo(d.lat,d.lon),near=findNearestRoad(p.x,p.z);
  if(state.inCar){userCar.position.set(near.x,0,near.z);carYaw=near.yaw;userCar.rotation.y=carYaw;carSpeed=0;}
@@ -497,6 +504,8 @@ async function setupWorld(){
  // Route across actual connected OSM street nodes when available (not a straight line).
  if(state.realMap)roadRouter=new StreetRouter(geometryMap);
  leafletViewer=createLiveDhakaMap({panel:$('bigMap'),container:$('leafletMap'),canvas:fullCanvas,credit:$('mapCredit'),onStatus:message=>{$('streetMapStatus').textContent=message;},toGeo:inverseGeo,districts:DISTRICTS});
+ urban=setupStreetLife(T,scene,{makeCar,findNearestRoad,geo,anchors:DISTRICTS,collidesWithBuilding});
+ refreshGameplayHUD();
  try{
   const stats=decorateBuildingFacades(T,scene,geometryMap.buildings,DISTRICTS,geo);
   const street=placeDhakaStreetDetails(T,scene,DISTRICTS,geo,findNearestRoad);
@@ -560,6 +569,8 @@ function enterExitVehicle(){
   else {const idx=parkedCars.indexOf(near.record);if(idx>=0)parkedCars.splice(idx,1);}
   userCar=near.vehicle;state.inCar=true;player.x=userCar.position.x;player.z=userCar.position.z;
   carYaw=userCar.rotation.y;person.visible=false;carSpeed=0;
+  game.carHealth=carDurability.get(userCar)??100;
+  if(near.source==='traffic'){game.addWanted(1,'commandeered a traffic vehicle');toast(game.lastEvent);}
   toast('ENTERED '+userCar.userData.kind.toUpperCase()+' · ↑/↓ ACCELERATE · ←/→ STEER · E EXIT');
  }else{
   if(Math.abs(carSpeed)>1.4){toast('Stop the car before getting out');return;}
@@ -568,6 +579,7 @@ function enterExitVehicle(){
   player.x=userCar.position.x+sideX;player.z=userCar.position.z+sideZ;
   if(collidesWithBuilding(player.x,player.z)){player.x=userCar.position.x-sideX;player.z=userCar.position.z-sideZ;}
   person.position.set(player.x,0,player.z);person.rotation.y=carYaw;carSpeed=0;
+  carDurability.set(userCar,game.carHealth);
   parkedCars.push({object:userCar,type:userCar.userData.kind.toUpperCase()});
   toast('EXITED VEHICLE · PRESS E NEAR ANY STOPPED CAR');
  }
@@ -604,7 +616,7 @@ function updateTraffic(dt){
  }
 }
 function updateControls(dt,elapsed){
- if(!state.playing||state.paused||state.largeMap||state.loading)return;
+ if(!state.playing||state.paused||state.largeMap||state.loading||jobsOpen)return;
  const fw=(keys['w']||keys['arrowup']?1:0)-(keys['s']||keys['arrowdown']?1:0);
  const strafe=(keys['d']||keys['arrowright']?1:0)-(keys['a']||keys['arrowleft']?1:0);
  if(state.inCar){
